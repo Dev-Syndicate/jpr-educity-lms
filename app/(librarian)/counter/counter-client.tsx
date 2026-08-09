@@ -121,6 +121,8 @@ export function CounterClient() {
   const [member, setMember] = useState<MemberHit | null>(null);
   const [recent, setRecent] = useState<Recent[]>([]);
   const recentId = useRef(0);
+  /** Bumped after every settled action so the loans list refetches. */
+  const [loansKey, setLoansKey] = useState(0);
 
   /**
    * null = follow the member slot (issue when one is loaded, return when
@@ -132,10 +134,10 @@ export function CounterClient() {
    */
   const [pinnedMode, setPinnedMode] = useState<Mode | null>(null);
 
-  // A pin of "issue" is meaningless without someone to issue to, so it falls
-  // back rather than leaving the counter in a mode it cannot act on.
-  const effectivePin = pinnedMode === "issue" && !member ? null : pinnedMode;
-  const mode: Mode = effectivePin ?? (member ? "issue" : "return");
+  // Issue is reachable WITHOUT a member: step 1 is where the member is
+  // chosen, so forcing a fallback here would make the button look broken —
+  // you could never get to the search that unlocks it.
+  const mode: Mode = pinnedMode ?? (member ? "issue" : "return");
   const active = MODES.find((m) => m.value === mode)!;
 
   const [issueState, issueAction, issuePending] = useActionState(issueBook, idleState);
@@ -165,16 +167,27 @@ export function CounterClient() {
       [{ id: ++recentId.current, what: latest.message!, ok: latest.ok }, ...prev].slice(0, 10),
     );
 
-    // A successful issue frees the member slot only if they have hit their
-    // limit; otherwise keep them loaded so the next book can be scanned.
     if (latest.ok && member) {
       const data = latest.data as IssueResult | undefined;
+
       if (data?.loansOut !== undefined && data.loansOut >= data.maxLoans) {
+        // Clear the member but STAY in issue mode: the librarian is working
+        // an issue queue, so the next person is the next step, not a mode
+        // change. Step 1 reopens with the search focused.
         setMember(null);
-        // Unpin only if the pin was Issue, which is now impossible without a
-        // member. An explicit Renew or Return stays as the librarian set it.
-        setPinnedMode((pin) => (pin === "issue" ? null : pin));
+      } else if (data?.loansOut !== undefined) {
+        // The member object is a snapshot taken at search time. Without this
+        // the header still read "0/3 books" after a successful issue, which
+        // is the number the librarian checks against the borrowing limit.
+        setMember((current) =>
+          current ? { ...current, booksOut: data.loansOut } : current,
+        );
       }
+
+      // Any settled circulation action changes what this member holds, so
+      // the books-on-loan list has to refetch. It previously keyed only on
+      // renewPending and so never noticed an issue.
+      setLoansKey((k) => k + 1);
     }
   }, [latest, member]);
 
@@ -216,16 +229,18 @@ export function CounterClient() {
   }
 
   /**
-   * Loading or clearing a member drops back to the inferred mode, so picking
-   * someone always lands on Issue rather than leaving the counter pinned to
-   * Return from a previous book.
+   * Picking a member happens inside step 1 of the issue flow, so the mode is
+   * left alone — unpinning here would eject the librarian from the very flow
+   * they are working through. Choosing someone from Return or Renew still
+   * lands on Issue, because the inferred default follows the member slot.
    */
   function selectMember(next: MemberHit | null) {
     setMember(next);
-    setPinnedMode(null);
+    if (next && !pinnedMode) setPinnedMode("issue");
   }
 
-  // Esc clears the member slot.
+  // Esc is "start over": drop the member AND any pinned mode, back to the
+  // resting state of waiting for a book to be returned.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -239,11 +254,7 @@ export function CounterClient() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <ModeSelector
-        mode={mode}
-        memberLoaded={Boolean(member)}
-        onChange={setPinnedMode}
-      />
+      <ModeSelector mode={mode} onChange={setPinnedMode} />
 
       <Card className="overflow-hidden pt-0">
         {/* The active mode's colour runs across the top of the card, so the
@@ -292,6 +303,7 @@ export function CounterClient() {
           onClear={() => selectMember(null)}
           renewAction={renewAction}
           renewPending={renewPending}
+          loansKey={loansKey}
         />
       ) : null}
 
@@ -310,11 +322,9 @@ export function CounterClient() {
  */
 function ModeSelector({
   mode,
-  memberLoaded,
   onChange,
 }: {
   mode: Mode;
-  memberLoaded: boolean;
   onChange: (mode: Mode | null) => void;
 }) {
   return (
@@ -333,13 +343,11 @@ function ModeSelector({
     >
       {MODES.map((m) => {
         const isActive = m.value === mode;
-        const locked = m.needsMember && !memberLoaded;
 
         return (
           <ToggleGroupItem
             key={m.value}
             value={m.value}
-            disabled={locked}
             className={cn(
               "h-auto flex-col items-start gap-0.5 rounded-lg border px-4 py-3 text-left",
               isActive
@@ -355,9 +363,7 @@ function ModeSelector({
             >
               {m.label}
             </span>
-            <span className="text-xs font-normal opacity-80">
-              {locked ? "Load a member first" : m.caption}
-            </span>
+            <span className="text-xs font-normal opacity-80">{m.caption}</span>
           </ToggleGroupItem>
         );
       })}
@@ -753,11 +759,13 @@ function MemberPanel({
   onClear,
   renewAction,
   renewPending,
+  loansKey,
 }: {
   member: MemberHit;
   onClear: () => void;
   renewAction: (formData: FormData) => void;
   renewPending: boolean;
+  loansKey: number;
 }) {
   const pending = member.accountStatus === "pending";
 
@@ -800,6 +808,7 @@ function MemberPanel({
             memberId={member.id}
             renewAction={renewAction}
             renewPending={renewPending}
+            loansKey={loansKey}
           />
         </CardContent>
       )}
@@ -811,10 +820,12 @@ function MemberLoansList({
   memberId,
   renewAction,
   renewPending,
+  loansKey,
 }: {
   memberId: string;
   renewAction: (formData: FormData) => void;
   renewPending: boolean;
+  loansKey: number;
 }) {
   type Loan = Awaited<ReturnType<typeof import("@/lib/actions/members").memberLoans>>[number];
   const [loans, setLoans] = useState<Loan[] | null>(null);
@@ -829,7 +840,9 @@ function MemberLoansList({
     return () => {
       cancelled = true;
     };
-  }, [memberId, renewPending]);
+    // loansKey is bumped by every settled circulation action, so an issue
+    // shows up here immediately rather than only after a renew.
+  }, [memberId, loansKey]);
 
   if (loans === null) {
     return <Spinner className="text-muted-foreground size-5" />;
