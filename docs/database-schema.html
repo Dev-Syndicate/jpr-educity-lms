@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Database Schema — JPR Educity LMS</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --surface: #ffffff;
+    --ink: #1b1a17;
+    --muted: #6b6862;
+    --line: #e2ded7;
+    --accent: #7a1f2b;
+    --accent-soft: #f7ecec;
+    --key: #8a6d1f;
+    --danger: #a8321f;
+    --ok: #2c6e49;
+    --code-bg: #f4f1ec;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14141a;
+      --surface: #1c1c23;
+      --ink: #e8e6e1;
+      --muted: #a09c94;
+      --line: #32323c;
+      --accent: #e0808f;
+      --accent-soft: #2a1e21;
+      --key: #d8b65a;
+      --danger: #e88b78;
+      --ok: #7fc09b;
+      --code-bg: #24242c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 3rem 1.25rem 5rem; }
+
+  header.masthead { border-bottom: 2px solid var(--ink); padding-bottom: 1.25rem; margin-bottom: 2.5rem; }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin: 0 0 .5rem;
+  }
+  h1 { font-size: clamp(1.7rem, 4vw, 2.5rem); line-height: 1.15; margin: 0 0 .6rem; letter-spacing: -.02em; }
+  .sub { color: var(--muted); margin: 0; max-width: 62ch; }
+
+  h2 {
+    font-size: 1.35rem; margin: 3.5rem 0 .4rem; letter-spacing: -.01em;
+    padding-top: 1.25rem; border-top: 1px solid var(--line);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 { font-size: 1rem; margin: 2rem 0 .6rem; }
+  .lede { color: var(--muted); margin: 0 0 1.5rem; max-width: 70ch; }
+
+  code, .mono { font-family: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, monospace; }
+  code { background: var(--code-bg); padding: .1em .38em; border-radius: 4px; font-size: .88em; }
+
+  figure { margin: 0 0 1rem; }
+  .figframe {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 1.25rem; overflow-x: auto;
+  }
+  svg { max-width: 100%; height: auto; display: block; }
+  figcaption { color: var(--muted); font-size: .88rem; margin-top: .75rem; max-width: 75ch; }
+
+  /* ---- table cards ---- */
+  .tables { display: grid; gap: 1.1rem; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+  .tbl {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .tbl > header {
+    display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap;
+    padding: .7rem .9rem; background: var(--accent-soft);
+    border-bottom: 1px solid var(--line);
+  }
+  .tbl h4 { margin: 0; font-size: .98rem; font-family: ui-monospace, monospace; }
+  .tbl .note { font-size: .76rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: .845rem; }
+  td { padding: .34rem .9rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.col { font-family: ui-monospace, monospace; white-space: nowrap; width: 1%; }
+  td.typ { font-family: ui-monospace, monospace; color: var(--muted); font-size: .93em; white-space: nowrap; width: 1%; }
+  td.desc { color: var(--muted); font-size: .93em; }
+  .pk, .fk, .uq { font-size: .64rem; font-weight: 700; letter-spacing: .04em;
+    padding: .08em .34em; border-radius: 3px; vertical-align: middle; margin-left: .3rem; }
+  .pk { background: var(--key); color: #fff; }
+  .fk { background: transparent; color: var(--accent); border: 1px solid currentColor; }
+  .uq { background: transparent; color: var(--ok); border: 1px solid currentColor; }
+
+  /* ---- callouts ---- */
+  .call {
+    border-left: 3px solid var(--accent); background: var(--surface);
+    padding: .85rem 1.1rem; border-radius: 0 var(--radius) var(--radius) 0;
+    margin: 1.25rem 0; font-size: .92rem;
+  }
+  .call.warn { border-left-color: var(--danger); }
+  .call.ok { border-left-color: var(--ok); }
+  .call strong { display: block; margin-bottom: .2rem; }
+
+  ul.tight { margin: .5rem 0 0; padding-left: 1.15rem; }
+  ul.tight li { margin-bottom: .35rem; }
+
+  .legend { display: flex; gap: 1.4rem; flex-wrap: wrap; font-size: .8rem; color: var(--muted); margin-top: .9rem; }
+  .legend span { display: inline-flex; align-items: center; gap: .38rem; }
+  .swatch { width: 22px; height: 0; border-top-width: 2px; border-top-style: solid; display: inline-block; }
+
+  footer { margin-top: 4rem; padding-top: 1.25rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .84rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Jeppiaar Educity · Library Management System</p>
+  <h1>Database Schema</h1>
+  <p class="sub">Seven tables in PostgreSQL (Supabase), with the constraints that make the borrowing rules impossible to break — including from outside the application.</p>
+</header>
+
+<!-- ============ ER DIAGRAM ============ -->
+<h2>Entity relationships</h2>
+<p class="lede">Every arrow is a foreign key, pointing from the child toward the parent it references. The labels say what the relationship means, not merely that one exists.</p>
+
+<figure>
+  <div class="figframe">
+    <svg viewBox="0 0 1080 660" role="img" aria-label="Entity relationship diagram: auth.users owns profiles; loans reference a book copy, a book, and a member profile; fines belong to a loan and a member; loan_events records an append-only audit trail; settings is a standalone singleton configuration row.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- auth.users -->
+      <g>
+        <rect x="424" y="14" width="232" height="46" rx="7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4" opacity=".55"/>
+        <text x="540" y="34" text-anchor="middle" font-size="13" font-family="ui-monospace,monospace" fill="currentColor" opacity=".8">auth.users</text>
+        <text x="540" y="50" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".55">managed by Supabase Auth</text>
+      </g>
+
+      <!-- profiles -->
+      <g>
+        <rect x="424" y="122" width="232" height="70" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
+        <text x="540" y="146" text-anchor="middle" font-size="14" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">profiles</text>
+        <text x="540" y="164" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">librarian · member</text>
+        <text x="540" y="180" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">student · staff</text>
+      </g>
+
+      <!-- books -->
+      <g>
+        <rect x="46" y="122" width="212" height="60" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
+        <text x="152" y="147" text-anchor="middle" font-size="14" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">books</text>
+        <text x="152" y="166" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">the title · one per work</text>
+      </g>
+
+      <!-- book_copies -->
+      <g>
+        <rect x="46" y="272" width="212" height="60" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
+        <text x="152" y="297" text-anchor="middle" font-size="14" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">book_copies</text>
+        <text x="152" y="316" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">physical copy · JPR-00123</text>
+      </g>
+
+      <!-- loans -->
+      <g>
+        <rect x="404" y="272" width="272" height="76" rx="7" fill="none" stroke="#7a1f2b" stroke-width="2.5"/>
+        <text x="540" y="298" text-anchor="middle" font-size="15" font-weight="700" font-family="ui-monospace,monospace" fill="#7a1f2b">loans</text>
+        <text x="540" y="316" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".75">who has which copy, until when</text>
+        <text x="540" y="334" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".75">open while returned_at IS NULL</text>
+      </g>
+
+      <!-- fines -->
+      <g>
+        <rect x="404" y="440" width="272" height="66" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
+        <text x="540" y="464" text-anchor="middle" font-size="14" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">fines</text>
+        <text x="540" y="483" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">accrues · assessed · paid or waived</text>
+      </g>
+
+      <!-- loan_events -->
+      <g>
+        <rect x="824" y="272" width="212" height="76" rx="7" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".75"/>
+        <text x="930" y="297" text-anchor="middle" font-size="13.5" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">loan_events</text>
+        <text x="930" y="315" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".65">append-only audit trail</text>
+        <text x="930" y="331" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".65">never updated or deleted</text>
+      </g>
+
+      <!-- settings -->
+      <g>
+        <rect x="824" y="122" width="212" height="76" rx="7" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".75"/>
+        <text x="930" y="146" text-anchor="middle" font-size="13.5" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">settings</text>
+        <text x="930" y="164" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".65">singleton · id = 1</text>
+        <text x="930" y="180" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".65">no foreign keys in</text>
+      </g>
+
+      <!-- auth.users -> profiles -->
+      <line x1="540" y1="60" x2="540" y2="118" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)" opacity=".7"/>
+      <text x="550" y="93" font-size="10.5" fill="currentColor" opacity=".7">1:1 · same uuid, on delete cascade</text>
+
+      <!-- books -> book_copies -->
+      <line x1="152" y1="182" x2="152" y2="268" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+      <text x="162" y="220" font-size="10.5" fill="currentColor">1 title has</text>
+      <text x="162" y="235" font-size="10.5" fill="currentColor">many copies</text>
+      <text x="162" y="252" font-size="9.5" fill="currentColor" opacity=".6">on delete restrict</text>
+
+      <!-- book_copies -> loans -->
+      <line x1="400" y1="302" x2="262" y2="302" stroke="#7a1f2b" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="331" y="294" text-anchor="middle" font-size="10.5" font-weight="600" fill="#7a1f2b">borrows this copy</text>
+      <text x="331" y="318" text-anchor="middle" font-size="9.5" fill="#7a1f2b" opacity=".85">max 1 open loan per copy</text>
+
+      <!-- loans -> books (denormalised) -->
+      <path d="M 430 272 C 400 220 300 200 258 168" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#ar)" opacity=".65"/>
+      <text x="300" y="185" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".7">denormalised book_id</text>
+
+      <!-- loans -> profiles (member) -->
+      <line x1="512" y1="268" x2="512" y2="196" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+      <text x="504" y="232" text-anchor="end" font-size="10.5" fill="currentColor">issued to member</text>
+
+      <!-- loans -> profiles (librarian actors) -->
+      <line x1="596" y1="268" x2="596" y2="196" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#ar)" opacity=".7"/>
+      <text x="606" y="225" font-size="10" fill="currentColor" opacity=".75">issued_by ·</text>
+      <text x="606" y="239" font-size="10" fill="currentColor" opacity=".75">returned_to</text>
+
+      <!-- loans -> fines -->
+      <line x1="500" y1="352" x2="500" y2="436" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+      <text x="492" y="382" text-anchor="end" font-size="10.5" fill="currentColor">one overdue</text>
+      <text x="492" y="396" text-anchor="end" font-size="10.5" fill="currentColor">fine per loan</text>
+      <text x="492" y="412" text-anchor="end" font-size="9.5" fill="currentColor" opacity=".6">on delete cascade</text>
+
+      <!-- fines -> profiles (member + collector) -->
+      <path d="M 676 462 C 760 462 760 176 660 160" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)" opacity=".75"/>
+      <text x="742" y="330" text-anchor="middle" font-size="10" fill="currentColor" opacity=".8">owed by member ·</text>
+      <text x="742" y="344" text-anchor="middle" font-size="10" fill="currentColor" opacity=".8">collected_by · waived_by</text>
+
+      <!-- loans -> loan_events -->
+      <line x1="680" y1="310" x2="820" y2="310" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)" opacity=".7"/>
+      <text x="750" y="302" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">every action logged</text>
+
+      <!-- settings note -->
+      <line x1="930" y1="202" x2="930" y2="266" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 4" opacity=".4"/>
+      <text x="940" y="238" font-size="9.5" fill="currentColor" opacity=".55">read by every RPC</text>
+    </svg>
+  </div>
+  <div class="legend">
+    <span><i class="swatch" style="border-color: var(--accent);"></i> the circulation path</span>
+    <span><i class="swatch" style="border-color: currentColor;"></i> foreign key</span>
+    <span><i class="swatch" style="border-color: currentColor; border-top-style: dashed;"></i> denormalised or optional</span>
+  </div>
+  <figcaption>A loan is the hinge of the schema. It points at a <em>physical copy</em> rather than a title, which is what makes “this exact book is out” answerable — and what the partial unique index below relies on.</figcaption>
+</figure>
+
+<!-- ============ LOAN LIFECYCLE ============ -->
+<h2>How a loan moves through its states</h2>
+<p class="lede">A loan has no status column. Its state is derived from three fields, so it can never disagree with itself.</p>
+
+<figure>
+  <div class="figframe">
+    <svg viewBox="0 0 1040 300" role="img" aria-label="Loan lifecycle: issue_book creates an open loan with a due date 15 days out. Before the due date it can be renewed up to twice. After the due date a fine accrues at 1 rupee per day, and renewal is blocked until that fine is paid or waived. return_book closes the loan and freezes the fine amount.">
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- states -->
+      <rect x="24" y="104" width="150" height="56" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <text x="99" y="128" text-anchor="middle" font-size="12.5" font-weight="700" fill="currentColor">available</text>
+      <text x="99" y="146" text-anchor="middle" font-size="10" fill="currentColor" opacity=".65">on the shelf</text>
+
+      <rect x="290" y="104" width="176" height="56" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <text x="378" y="128" text-anchor="middle" font-size="12.5" font-weight="700" fill="currentColor">on loan</text>
+      <text x="378" y="146" text-anchor="middle" font-size="10" fill="currentColor" opacity=".65">due in 15 days · no fine</text>
+
+      <rect x="582" y="104" width="176" height="56" rx="7" fill="none" stroke="#a8321f" stroke-width="2.2"/>
+      <text x="670" y="128" text-anchor="middle" font-size="12.5" font-weight="700" fill="#a8321f">overdue</text>
+      <text x="670" y="146" text-anchor="middle" font-size="10" fill="#a8321f" opacity=".85">₹1 per day, accruing</text>
+
+      <rect x="866" y="104" width="150" height="56" rx="7" fill="none" stroke="#2c6e49" stroke-width="1.8"/>
+      <text x="941" y="128" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2c6e49">returned</text>
+      <text x="941" y="146" text-anchor="middle" font-size="10" fill="#2c6e49" opacity=".85">fine frozen</text>
+
+      <!-- transitions -->
+      <line x1="176" y1="132" x2="286" y2="132" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar2)"/>
+      <text x="231" y="123" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="currentColor">issue_book()</text>
+
+      <line x1="468" y1="132" x2="578" y2="132" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar2)"/>
+      <text x="523" y="123" text-anchor="middle" font-size="10.5" fill="currentColor">due date passes</text>
+      <text x="523" y="150" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".6">no event — time only</text>
+
+      <line x1="760" y1="132" x2="862" y2="132" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar2)"/>
+      <text x="811" y="123" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="currentColor">return_book()</text>
+
+      <!-- return from on-loan -->
+      <path d="M 420 160 C 420 232 880 240 941 166" fill="none" stroke="#2c6e49" stroke-width="1.4" marker-end="url(#ar2)"/>
+      <text x="660" y="252" text-anchor="middle" font-size="10.5" fill="#2c6e49">returned on time · no fine</text>
+
+      <!-- renew loop on on-loan -->
+      <path d="M 330 104 C 330 52 426 52 426 104" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar2)"/>
+      <text x="378" y="46" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="currentColor">renew_loan()</text>
+      <text x="378" y="32" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".65">max 2 · due = today + 15</text>
+
+      <!-- blocked renew on overdue -->
+      <path d="M 622 104 C 622 52 718 52 718 104" fill="none" stroke="#a8321f" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ar2)"/>
+      <text x="670" y="46" text-anchor="middle" font-size="10.5" font-weight="600" fill="#a8321f">renewal blocked</text>
+      <text x="670" y="32" text-anchor="middle" font-size="9.5" fill="#a8321f" opacity=".85">until the fine is settled</text>
+
+      <!-- copy returns to available -->
+      <path d="M 941 160 C 941 282 99 290 99 166" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#ar2)" opacity=".6"/>
+      <text x="520" y="286" text-anchor="middle" font-size="10" fill="currentColor" opacity=".65">copy status returns to available — kept in sync by trigger, not by app code</text>
+    </svg>
+  </div>
+  <figcaption>Overdue is not a stored state; it is simply <code>due_date &lt; today_ist()</code> on a loan whose <code>returned_at</code> is still null. Nothing has to run at midnight for a book to become late.</figcaption>
+</figure>
+
+<div class="call warn">
+  <strong>Why renewal is blocked while a fine is unpaid</strong>
+  Renewal sets the due date to <em>today + 15 days</em>. If an overdue book could be renewed freely, the new due date would sit in the future and the days already owed would silently disappear. Requiring payment first keeps the arithmetic honest without needing a carry-forward mechanism.
+</div>
+
+<!-- ============ TABLES ============ -->
+<h2>Tables and columns</h2>
+<p class="lede">Abbreviated to the columns that carry meaning. Every table also has <code>created_at</code> and <code>updated_at</code>, maintained by trigger.</p>
+
+<div class="tables">
+
+  <!-- profiles -->
+  <article class="tbl">
+    <header><h4>profiles</h4><span class="note">one row per person</span></header>
+    <table>
+      <tr><td class="col">id<span class="pk">PK</span><span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">same id as <code>auth.users</code></td></tr>
+      <tr><td class="col">role</td><td class="typ">enum</td><td class="desc">librarian · member</td></tr>
+      <tr><td class="col">member_type</td><td class="typ">enum</td><td class="desc">student · staff — null for librarians</td></tr>
+      <tr><td class="col">full_name</td><td class="typ">text</td><td class="desc">searchable, trigram indexed</td></tr>
+      <tr><td class="col">email<span class="uq">UQ</span></td><td class="typ">text</td><td class="desc">personal address; the login identifier</td></tr>
+      <tr><td class="col">roll_number<span class="uq">UQ</span></td><td class="typ">text</td><td class="desc">roll no. or staff ID; used at the counter</td></tr>
+      <tr><td class="col">department</td><td class="typ">text</td><td class="desc"></td></tr>
+      <tr><td class="col">phone</td><td class="typ">text</td><td class="desc"></td></tr>
+      <tr><td class="col">is_active</td><td class="typ">bool</td><td class="desc">false blocks borrowing; never delete</td></tr>
+    </table>
+  </article>
+
+  <!-- books -->
+  <article class="tbl">
+    <header><h4>books</h4><span class="note">bibliographic record</span></header>
+    <table>
+      <tr><td class="col">id<span class="pk">PK</span></td><td class="typ">uuid</td><td class="desc"></td></tr>
+      <tr><td class="col">title</td><td class="typ">text</td><td class="desc">weighted highest in search</td></tr>
+      <tr><td class="col">author</td><td class="typ">text</td><td class="desc"></td></tr>
+      <tr><td class="col">isbn<span class="uq">UQ</span></td><td class="typ">text</td><td class="desc">ISBN-10/13, hyphens ignored</td></tr>
+      <tr><td class="col">publisher</td><td class="typ">text</td><td class="desc"></td></tr>
+      <tr><td class="col">edition</td><td class="typ">text</td><td class="desc"></td></tr>
+      <tr><td class="col">year</td><td class="typ">smallint</td><td class="desc">1400–2200</td></tr>
+      <tr><td class="col">category</td><td class="typ">text</td><td class="desc"></td></tr>
+      <tr><td class="col">search_vector</td><td class="typ">tsvector</td><td class="desc">generated; always in sync</td></tr>
+    </table>
+  </article>
+
+  <!-- book_copies -->
+  <article class="tbl">
+    <header><h4>book_copies</h4><span class="note">one row per physical book</span></header>
+    <table>
+      <tr><td class="col">id<span class="pk">PK</span></td><td class="typ">uuid</td><td class="desc"></td></tr>
+      <tr><td class="col">book_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ books</td></tr>
+      <tr><td class="col">accession_number<span class="uq">UQ</span></td><td class="typ">text</td><td class="desc">the barcode · <code>JPR-00123</code></td></tr>
+      <tr><td class="col">status</td><td class="typ">enum</td><td class="desc">available · issued · lost · damaged</td></tr>
+      <tr><td class="col">condition</td><td class="typ">enum</td><td class="desc">new · good · fair · poor</td></tr>
+      <tr><td class="col">shelf_location</td><td class="typ">text</td><td class="desc">where to find it</td></tr>
+      <tr><td class="col">acquired_on</td><td class="typ">date</td><td class="desc"></td></tr>
+      <tr><td class="col">price</td><td class="typ">numeric</td><td class="desc">for replacement charges</td></tr>
+    </table>
+  </article>
+
+  <!-- loans -->
+  <article class="tbl">
+    <header><h4>loans</h4><span class="note">the circulation record</span></header>
+    <table>
+      <tr><td class="col">id<span class="pk">PK</span></td><td class="typ">uuid</td><td class="desc"></td></tr>
+      <tr><td class="col">copy_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ book_copies · the specific book</td></tr>
+      <tr><td class="col">book_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">denormalised for fast history</td></tr>
+      <tr><td class="col">member_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ profiles · who has it</td></tr>
+      <tr><td class="col">issued_at</td><td class="typ">timestamptz</td><td class="desc"></td></tr>
+      <tr><td class="col">issued_by<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">which librarian</td></tr>
+      <tr><td class="col">due_date</td><td class="typ">date</td><td class="desc">a calendar day, not an instant</td></tr>
+      <tr><td class="col">returned_at</td><td class="typ">timestamptz</td><td class="desc"><strong>null = still out</strong></td></tr>
+      <tr><td class="col">renewal_count</td><td class="typ">integer</td><td class="desc">checked against max_renewals</td></tr>
+      <tr><td class="col">loan_period_days_at_issue</td><td class="typ">integer</td><td class="desc">snapshot — settings can change later</td></tr>
+      <tr><td class="col">fine_per_day_at_issue</td><td class="typ">numeric</td><td class="desc">snapshot — protects history</td></tr>
+      <tr><td class="col">closed_reason</td><td class="typ">text</td><td class="desc">null = normal return; else lost/damaged</td></tr>
+    </table>
+  </article>
+
+  <!-- fines -->
+  <article class="tbl">
+    <header><h4>fines</h4><span class="note">money owed, and its paper trail</span></header>
+    <table>
+      <tr><td class="col">id<span class="pk">PK</span></td><td class="typ">uuid</td><td class="desc"></td></tr>
+      <tr><td class="col">loan_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ loans · one overdue fine each</td></tr>
+      <tr><td class="col">member_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ profiles</td></tr>
+      <tr><td class="col">fine_type</td><td class="typ">enum</td><td class="desc">overdue · lost · damage</td></tr>
+      <tr><td class="col">amount</td><td class="typ">numeric</td><td class="desc">null while accruing; frozen on return</td></tr>
+      <tr><td class="col">assessed_at</td><td class="typ">timestamptz</td><td class="desc">when the amount was frozen</td></tr>
+      <tr><td class="col">is_paid</td><td class="typ">bool</td><td class="desc">full payment only</td></tr>
+      <tr><td class="col">paid_at</td><td class="typ">timestamptz</td><td class="desc"></td></tr>
+      <tr><td class="col">collected_by<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">which librarian took the cash</td></tr>
+      <tr><td class="col">is_waived</td><td class="typ">bool</td><td class="desc">cannot also be paid</td></tr>
+      <tr><td class="col">waived_by<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc"></td></tr>
+      <tr><td class="col">waiver_reason</td><td class="typ">text</td><td class="desc"><strong>required</strong> when waiving</td></tr>
+    </table>
+  </article>
+
+  <!-- settings -->
+  <article class="tbl">
+    <header><h4>settings</h4><span class="note">one row, forever · id = 1</span></header>
+    <table>
+      <tr><td class="col">id<span class="pk">PK</span></td><td class="typ">smallint</td><td class="desc">check (id = 1) · cannot be deleted</td></tr>
+      <tr><td class="col">loan_period_days</td><td class="typ">integer</td><td class="desc">default 15</td></tr>
+      <tr><td class="col">fine_per_day</td><td class="typ">numeric</td><td class="desc">default ₹1.00</td></tr>
+      <tr><td class="col">max_renewals</td><td class="typ">integer</td><td class="desc">default 2</td></tr>
+      <tr><td class="col">max_books_student</td><td class="typ">integer</td><td class="desc">default 3</td></tr>
+      <tr><td class="col">max_books_staff</td><td class="typ">integer</td><td class="desc">default 5</td></tr>
+      <tr><td class="col">library_name</td><td class="typ">text</td><td class="desc">Jeppiaar Educity Library</td></tr>
+      <tr><td class="col">updated_by<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">who last changed the rules</td></tr>
+    </table>
+  </article>
+
+  <!-- loan_events -->
+  <article class="tbl">
+    <header><h4>loan_events</h4><span class="note">append-only · never updated</span></header>
+    <table>
+      <tr><td class="col">id<span class="pk">PK</span></td><td class="typ">bigint</td><td class="desc">identity</td></tr>
+      <tr><td class="col">loan_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ loans</td></tr>
+      <tr><td class="col">copy_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ book_copies</td></tr>
+      <tr><td class="col">member_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ profiles</td></tr>
+      <tr><td class="col">event_type</td><td class="typ">text</td><td class="desc">issued · returned · renewed · fine_paid · fine_waived · marked_lost …</td></tr>
+      <tr><td class="col">actor_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">the librarian who did it</td></tr>
+      <tr><td class="col">details</td><td class="typ">jsonb</td><td class="desc">before/after values</td></tr>
+    </table>
+  </article>
+
+</div>
+
+<div class="call">
+  <strong>Why an audit table earns its keep</strong>
+  Cash changes hands at the counter, and “I did return that book” disputes are routine in a college library. <code>loan_events</code> is append-only and cheap to write, so every issue, return, renewal, payment and waiver leaves a permanent record of who did it and when.
+</div>
+
+<!-- ============ CONSTRAINTS ============ -->
+<h2>The constraints that enforce the rules</h2>
+<p class="lede">These live in the database rather than the application, so they hold even if someone bypasses the interface entirely and calls the API directly.</p>
+
+<h3>A copy can only be lent once at a time</h3>
+<pre style="background: var(--code-bg); padding: .9rem 1.1rem; border-radius: var(--radius); overflow-x: auto; font-size: .85rem; margin: 0 0 1rem;"><code>create unique index loans_one_active_per_copy
+  on public.loans (copy_id)
+  where returned_at is null;</code></pre>
+<p class="lede" style="margin-top:-.5rem">A partial index over open loans only. Two librarians scanning the same barcode simultaneously cannot both succeed — the loser gets a unique-violation, which the issue function turns into a readable message. There is no read-then-write gap for a race to slip through.</p>
+
+<h3>Members cannot promote themselves</h3>
+<p class="lede">Two independent mechanisms, because one of them could be loosened by a careless future edit:</p>
+<ul class="tight">
+  <li>Row-level security grants members <strong>no UPDATE policy at all</strong> on <code>profiles</code>.</li>
+  <li>A <code>BEFORE UPDATE</code> trigger rejects any change to <code>role</code>, <code>member_type</code>, <code>roll_number</code> or <code>is_active</code> from a non-librarian — and fires regardless of what the policies say.</li>
+</ul>
+
+<h3>Dates are Indian, not UTC</h3>
+<p class="lede">Supabase servers run in UTC. Between midnight and 05:30 IST, <code>current_date</code> still reports <em>yesterday</em> in India — which would undercount a day of fine and could record a morning return as having happened the day before. Every date calculation goes through one function instead:</p>
+<pre style="background: var(--code-bg); padding: .9rem 1.1rem; border-radius: var(--radius); overflow-x: auto; font-size: .85rem; margin: 0 0 1rem;"><code>create function public.today_ist() returns date
+language sql stable as $$
+  select (now() at time zone 'Asia/Kolkata')::date;
+$$;</code></pre>
+
+<h3>History cannot be re-priced</h3>
+<p class="lede">Each loan stores <code>loan_period_days_at_issue</code> and <code>fine_per_day_at_issue</code> when it is created. Raising the fine to ₹2/day next term changes what new loans accrue, and leaves every past fine exactly as it was assessed. A fine's <code>amount</code> is null while it is still growing and frozen the moment the book comes back.</p>
+
+<h3>A fine cannot be both paid and waived</h3>
+<p class="lede">Check constraints keep the settlement columns coherent: paying requires <code>paid_at</code> and <code>collected_by</code> together; waiving requires <code>waived_at</code> and <code>waived_by</code>; neither can be recorded against an amount that was never assessed.</p>
+
+<!-- ============ ACCESS ============ -->
+<h2>Who can see and do what</h2>
+<figure>
+  <div class="figframe">
+    <svg viewBox="0 0 940 250" role="img" aria-label="Access model: a member's queries are filtered by row level security to their own rows and rejected for all writes. A librarian's writes go through security-definer functions that re-check the caller's role and enforce every borrowing limit before touching the tables.">
+      <defs>
+        <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- actors -->
+      <rect x="18" y="34" width="142" height="52" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <text x="89" y="57" text-anchor="middle" font-size="12.5" font-weight="700" fill="currentColor">member</text>
+      <text x="89" y="74" text-anchor="middle" font-size="10" fill="currentColor" opacity=".65">read-only</text>
+
+      <rect x="18" y="152" width="142" height="52" rx="7" fill="none" stroke="#7a1f2b" stroke-width="2"/>
+      <text x="89" y="175" text-anchor="middle" font-size="12.5" font-weight="700" fill="#7a1f2b">librarian</text>
+      <text x="89" y="192" text-anchor="middle" font-size="10" fill="currentColor" opacity=".65">full access</text>
+
+      <!-- RLS gate -->
+      <rect x="300" y="24" width="180" height="72" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <text x="390" y="48" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">row level security</text>
+      <text x="390" y="66" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">own rows only</text>
+      <text x="390" y="82" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">no write policy</text>
+
+      <!-- RPC gate -->
+      <rect x="300" y="142" width="180" height="72" rx="7" fill="none" stroke="#7a1f2b" stroke-width="2"/>
+      <text x="390" y="166" text-anchor="middle" font-size="12" font-weight="700" fill="#7a1f2b">security definer RPC</text>
+      <text x="390" y="184" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">re-checks the caller's role</text>
+      <text x="390" y="200" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">enforces every limit</text>
+
+      <!-- tables -->
+      <rect x="640" y="82" width="180" height="72" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
+      <text x="730" y="112" text-anchor="middle" font-size="13" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">tables</text>
+      <text x="730" y="132" text-anchor="middle" font-size="10" fill="currentColor" opacity=".65">the actual data</text>
+
+      <!-- member path -->
+      <line x1="164" y1="60" x2="296" y2="60" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar3)"/>
+      <text x="230" y="52" text-anchor="middle" font-size="10" fill="currentColor">select</text>
+      <line x1="484" y1="76" x2="636" y2="104" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar3)"/>
+      <text x="560" y="80" text-anchor="middle" font-size="10" fill="currentColor">own loans + fines</text>
+
+      <!-- member write rejected -->
+      <path d="M 164 78 C 220 110 240 120 296 120" fill="none" stroke="#a8321f" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <line x1="284" y1="110" x2="304" y2="130" stroke="#a8321f" stroke-width="2.2"/>
+      <line x1="304" y1="110" x2="284" y2="130" stroke="#a8321f" stroke-width="2.2"/>
+      <text x="216" y="134" text-anchor="middle" font-size="10" font-weight="600" fill="#a8321f">any write</text>
+      <text x="216" y="147" text-anchor="middle" font-size="9.5" fill="#a8321f" opacity=".8">rejected</text>
+
+      <!-- librarian path -->
+      <line x1="164" y1="178" x2="296" y2="178" stroke="#7a1f2b" stroke-width="2" marker-end="url(#ar3)"/>
+      <text x="230" y="170" text-anchor="middle" font-size="10" fill="#7a1f2b">issue · return · renew</text>
+      <line x1="484" y1="162" x2="636" y2="136" stroke="#7a1f2b" stroke-width="2" marker-end="url(#ar3)"/>
+      <text x="560" y="176" text-anchor="middle" font-size="10" fill="#7a1f2b">writes, if the rules allow</text>
+
+      <text x="470" y="238" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">Both gates sit inside the database — bypassing the application does not bypass them.</text>
+    </svg>
+  </div>
+  <figcaption>The application re-checks permissions too, but that check is a courtesy to the user interface. The enforcement that matters happens here.</figcaption>
+</figure>
+
+<footer>
+  <p>Jeppiaar Educity LMS · schema reference · generated 9 August 2026<br>
+  Companion to <code>docs/PRD.md</code>. The authoritative definitions are the migrations in <code>supabase/migrations/</code>.</p>
+</footer>
+
+</div>
+</body>
+</html>
