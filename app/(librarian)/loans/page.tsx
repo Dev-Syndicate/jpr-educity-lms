@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { LoanActions } from "@/components/loan-actions";
+import { SearchField } from "@/components/search-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -27,8 +28,9 @@ const TABS = [
 export default async function LoansPage(props: PageProps<"/loans">) {
   await requireLibrarian();
 
-  const { filter } = await props.searchParams;
+  const { filter, q } = await props.searchParams;
   const active = typeof filter === "string" ? filter : "all";
+  const query = typeof q === "string" ? q.trim() : "";
 
   const supabase = await createClient();
   const { data: today } = await supabase.rpc("today_ist");
@@ -45,31 +47,50 @@ export default async function LoansPage(props: PageProps<"/loans">) {
   if (active === "overdue") request = request.eq("is_overdue", true);
   if (active === "due-today" && today) request = request.eq("due_date", today);
 
+  if (query) {
+    request = request.or(
+      `book_title.ilike.%${query}%,accession_number.ilike.%${query}%,member_name.ilike.%${query}%,member_roll_number.ilike.%${query}%`,
+    );
+  }
+
   const { data: loans } = await request;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((tab) => (
-          <Button
-            key={tab.key}
-            variant={active === tab.key ? "default" : "outline"}
-            size="sm"
-            nativeButton={false}
-            render={<Link href={`/loans?filter=${tab.key}`}>{tab.label}</Link>}
-          />
-        ))}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((tab) => (
+            <Button
+              key={tab.key}
+              variant={active === tab.key ? "default" : "outline"}
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link
+                  // Carry the search across tabs — switching filter should
+                  // narrow the current search, not silently discard it.
+                  href={`/loans?${new URLSearchParams({ filter: tab.key, ...(query && { q: query }) })}`}
+                >
+                  {tab.label}
+                </Link>
+              }
+            />
+          ))}
+        </div>
+        <SearchField placeholder="Search book, accession or member" />
       </div>
 
       {!loans?.length ? (
         <Empty>
-          <EmptyTitle>Nothing here</EmptyTitle>
+          <EmptyTitle>{query ? "No matches" : "Nothing here"}</EmptyTitle>
           <EmptyDescription>
-            {active === "overdue"
-              ? "No book is overdue."
-              : active === "due-today"
-                ? "Nothing is due today."
-                : "No books are currently on loan."}
+            {query
+              ? `No loan matches “${query}”.`
+              : active === "overdue"
+                ? "No book is overdue."
+                : active === "due-today"
+                  ? "Nothing is due today."
+                  : "No books are currently on loan."}
           </EmptyDescription>
         </Empty>
       ) : (

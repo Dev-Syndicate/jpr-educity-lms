@@ -60,11 +60,10 @@ type Mode = "issue" | "return" | "renew";
  * Renew need only the book in hand. Rendering all three identically was the
  * confusion: nothing on screen said which one you were in or what came next.
  *
- * Each mode owns a domain colour already defined in globals.css, so the
- * colour carries meaning rather than decoration:
- *   issue  -> issued  (blue, a copy going out)
- *   return -> available (teal, a copy coming back to the shelf)
- *   renew  -> pending (orange, a loan being extended)
+ * Structure carries that difference, not colour. The status tokens
+ * (available / issued / overdue / pending) stay reserved for what a book or
+ * an account IS; using them for what a button DOES would make a badge and a
+ * mode picker look like the same kind of information.
  */
 const MODES: {
   value: Mode;
@@ -73,43 +72,24 @@ const MODES: {
   caption: string;
   /** Issue is the only two-step operation. */
   needsMember: boolean;
-  tint: { chip: string; ring: string; text: string; bar: string };
 }[] = [
   {
     value: "issue",
     label: "Issue",
     caption: "Give a book to a member",
     needsMember: true,
-    tint: {
-      chip: "bg-issued-subtle text-issued",
-      ring: "border-issued",
-      text: "text-issued",
-      bar: "bg-issued",
-    },
   },
   {
     value: "return",
     label: "Return",
     caption: "Take a book back",
     needsMember: false,
-    tint: {
-      chip: "bg-available-subtle text-available",
-      ring: "border-available",
-      text: "text-available",
-      bar: "bg-available",
-    },
   },
   {
     value: "renew",
     label: "Renew",
     caption: "Extend a due date",
     needsMember: false,
-    tint: {
-      chip: "bg-pending-subtle text-pending",
-      ring: "border-pending",
-      text: "text-pending",
-      bar: "bg-pending",
-    },
   },
 ];
 
@@ -146,7 +126,6 @@ export function CounterClient() {
   // chosen, so forcing a fallback here would make the button look broken —
   // you could never get to the search that unlocks it.
   const mode: Mode = pinnedMode ?? (member ? "issue" : "return");
-  const active = MODES.find((m) => m.value === mode)!;
 
   const [issueState, issueAction, issuePending] = useActionState(issueBook, idleState);
   const [returnState, returnAction, returnPending] = useActionState(returnBook, idleState);
@@ -261,17 +240,19 @@ export function CounterClient() {
   }, []);
 
   return (
-    // The work is one column; Recent is a log beside it, not a step below it.
-    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-      <div className="flex flex-col gap-4">
+    // The right column only exists once there is something to put in it —
+    // reserving 20rem for an empty log left a dead band down the page.
+    <div
+      className={cn(
+        "grid items-start gap-6",
+        recent.length > 0 && "xl:grid-cols-[minmax(0,1fr)_20rem]",
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-4">
         <ModeSelector mode={mode} onChange={setPinnedMode} />
 
-        <Card className="overflow-hidden pt-0">
-          {/* The active mode's colour runs across the top of the card, so the
-              operation is identifiable before reading a word. */}
-          <div className={cn("h-1 w-full", active.tint.bar)} />
-
-          <CardContent className="flex flex-col gap-5 pt-5">
+        <Card>
+          <CardContent className="flex flex-col gap-5">
             {mode === "issue" ? (
               <IssueSteps
                 member={member}
@@ -289,7 +270,6 @@ export function CounterClient() {
                     ? "Scan the book. Any fine is worked out automatically."
                     : "Scan the book. The new due date runs 15 days from today."
                 }
-                tint={active.tint}
                 pending={pending}
                 nonce={latest.nonce}
                 onScan={handleScan}
@@ -362,18 +342,11 @@ function ModeSelector({
             className={cn(
               "h-auto flex-col items-start gap-0.5 rounded-lg border px-4 py-3 text-left",
               isActive
-                ? cn(m.tint.ring, m.tint.chip, "border-2")
+                ? "border-primary bg-primary/5 text-primary"
                 : "border-border bg-card",
             )}
           >
-            <span
-              className={cn(
-                "text-base font-semibold",
-                isActive ? m.tint.text : undefined,
-              )}
-            >
-              {m.label}
-            </span>
+            <span className="text-base font-semibold">{m.label}</span>
             <span className="text-xs font-normal opacity-80">{m.caption}</span>
           </ToggleGroupItem>
         );
@@ -391,7 +364,6 @@ function ModeSelector({
 function ScanTarget({
   title,
   hint,
-  tint,
   pending,
   nonce,
   onScan,
@@ -399,7 +371,6 @@ function ScanTarget({
 }: {
   title: string;
   hint: string;
-  tint: { text: string };
   pending: boolean;
   nonce?: number;
   onScan: (value: string) => void;
@@ -408,7 +379,7 @@ function ScanTarget({
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h3 className={cn("text-lg font-semibold", tint.text)}>{title}</h3>
+        <h3 className="text-lg font-semibold">{title}</h3>
         <p className="text-muted-foreground text-sm">{hint}</p>
       </div>
       <ScanInput
@@ -515,7 +486,9 @@ function Step({
       <span
         className={cn(
           "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
-          done ? "bg-issued text-issued-foreground" : "bg-muted text-muted-foreground",
+          done
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-muted-foreground",
         )}
         aria-hidden
       >
