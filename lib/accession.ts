@@ -14,11 +14,11 @@ export function parseAccessionNumbers(raw: string): {
     .map((value) => value.trim().toUpperCase())
     .filter(Boolean);
 
-  if (!numbers.length) return { error: "Enter at least one accession number." };
+  if (!numbers.length) return { error: "Enter at least one serial number." };
   if (numbers.length > 200) return { error: "Add at most 200 copies at a time." };
 
   const tooLong = numbers.find((value) => value.length > 50);
-  if (tooLong) return { error: `"${tooLong}" is too long for an accession number.` };
+  if (tooLong) return { error: `"${tooLong}" is too long for a serial number.` };
 
   // A repeat within one submission would otherwise surface as a clash with a
   // row that does not exist yet.

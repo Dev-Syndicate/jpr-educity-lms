@@ -70,7 +70,7 @@ export function CopiesPanel({
         <CardTitle>Copies</CardTitle>
         <CardDescription>
           {copies.length} physical cop{copies.length === 1 ? "y" : "ies"}. Enter the
-          accession number printed on each book.
+          serial number printed on each book.
         </CardDescription>
       </CardHeader>
 
@@ -80,7 +80,7 @@ export function CopiesPanel({
         <form action={addAction} className="flex flex-col gap-2">
           <input type="hidden" name="bookId" value={bookId} />
           <Field data-invalid={latest.fieldErrors?.accessionNumbers ? true : undefined}>
-            <FieldLabel htmlFor="accessionNumbers">Add copies</FieldLabel>
+            <FieldLabel htmlFor="accessionNumbers">Add copies by serial no.</FieldLabel>
             <Textarea
               id="accessionNumbers"
               name="accessionNumbers"
@@ -107,7 +107,7 @@ export function CopiesPanel({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Accession</TableHead>
+                <TableHead>Serial no.</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Held by</TableHead>
                 <TableHead className="text-right">Actions</TableHead>

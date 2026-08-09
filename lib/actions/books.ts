@@ -163,7 +163,7 @@ async function addCopiesFor(
   // The accession number is typed by hand, so a clash is an ordinary typo and
   // deserves better than a raw 23505.
   if (error.code === "23505") {
-    return "One of those accession numbers is already used by another copy.";
+    return "One of those serial numbers is already used by another copy.";
   }
   return rpcErrorMessage(error, "Could not add copies.");
 }
@@ -243,7 +243,7 @@ export async function markCopyLost(
 
   const accession = String(formData.get("accessionNumber") ?? "").trim().toUpperCase();
   if (!accession || accession.length > 50) {
-    return failure("Invalid accession number.");
+    return failure("Invalid serial number.");
   }
 
   const supabase = await createClient();

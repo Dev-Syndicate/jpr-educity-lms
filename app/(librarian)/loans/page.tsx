@@ -93,7 +93,7 @@ export default async function LoansPage(props: PageProps<"/loans">) {
             />
           ))}
         </div>
-        <SearchField placeholder="Search book, accession or member" />
+        <SearchField placeholder="Search book, serial no. or member" />
       </div>
 
       {!loans?.length ? (

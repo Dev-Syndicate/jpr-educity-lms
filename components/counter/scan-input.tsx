@@ -115,7 +115,7 @@ export function ScanInput({
           readOnly={pending}
           disabled={disabled}
           aria-busy={pending}
-          aria-label="Scan or type an accession number"
+          aria-label="Scan or type a serial number"
           placeholder={placeholder ?? "Scan a book barcode…"}
           // Monospaced and centred so a barcode reads back at a glance, but
           // otherwise the same size as any other field in the app.

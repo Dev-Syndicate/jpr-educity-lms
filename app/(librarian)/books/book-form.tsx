@@ -131,7 +131,7 @@ export function BookForm({ book }: { book?: BookValues }) {
 
         {!editing ? (
           <Field data-invalid={state.fieldErrors?.accessionNumbers ? true : undefined}>
-            <FieldLabel htmlFor="accessionNumbers">Accession numbers</FieldLabel>
+            <FieldLabel htmlFor="accessionNumbers">Serial numbers</FieldLabel>
             <Textarea
               id="accessionNumbers"
               name="accessionNumbers"
@@ -142,8 +142,8 @@ export function BookForm({ book }: { book?: BookValues }) {
             />
             <FieldError errors={fieldErrors(state, "accessionNumbers")} />
             <FieldDescription>
-              The number printed on each physical copy — one per line, or separated
-              by commas. Leave blank to add copies later.
+              The serial number printed on each physical copy — one per line, or
+              separated by commas. Leave blank to add copies later.
             </FieldDescription>
           </Field>
         ) : null}
