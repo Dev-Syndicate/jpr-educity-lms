@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, SearchIcon, UserRoundIcon, XIcon } from "lucide-react";
+import { CheckIcon, SearchIcon, XIcon } from "lucide-react";
 import {
   startTransition,
   useActionState,
@@ -238,65 +238,64 @@ export function CounterClient() {
   }, []);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="flex flex-col gap-4">
-        <ModeSelector
-          mode={mode}
-          memberLoaded={Boolean(member)}
-          onChange={setPinnedMode}
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <ModeSelector
+        mode={mode}
+        memberLoaded={Boolean(member)}
+        onChange={setPinnedMode}
+      />
+
+      <Card className="overflow-hidden pt-0">
+        {/* The active mode's colour runs across the top of the card, so the
+            operation is identifiable before reading a word. */}
+        <div className={cn("h-1 w-full", active.tint.bar)} />
+
+        <CardContent className="flex flex-col gap-5 pt-5">
+          {mode === "issue" ? (
+            <IssueSteps
+              member={member}
+              pending={pending}
+              nonce={latest.nonce}
+              onScan={handleScan}
+              onSelectMember={selectMember}
+              onClearMember={() => selectMember(null)}
+            />
+          ) : (
+            <ScanTarget
+              title={mode === "return" ? "Take a book back" : "Extend a due date"}
+              hint={
+                mode === "return"
+                  ? "Scan the book. Any fine is worked out automatically."
+                  : "Scan the book. The new due date runs 15 days from today."
+              }
+              tint={active.tint}
+              pending={pending}
+              nonce={latest.nonce}
+              onScan={handleScan}
+              placeholder={mode === "return" ? "Scan to return…" : "Scan to renew…"}
+            />
+          )}
+
+          <ScanFeedback state={latest} />
+
+          {/* Occasional lookup — "which copy do I fetch?" — so it stays shut
+              until asked for rather than sitting open beside the scan field. */}
+          <BookSearch />
+        </CardContent>
+      </Card>
+
+      {/* Only in issue mode: in return/renew the book in hand is the
+          subject, not a member. */}
+      {member && mode === "issue" ? (
+        <MemberPanel
+          member={member}
+          onClear={() => selectMember(null)}
+          renewAction={renewAction}
+          renewPending={renewPending}
         />
+      ) : null}
 
-        <Card className="overflow-hidden pt-0">
-          {/* The active mode's colour runs across the top of the card, so the
-              operation is identifiable before reading a word. */}
-          <div className={cn("h-1 w-full", active.tint.bar)} />
-
-          <CardContent className="flex flex-col gap-5 pt-5">
-            {mode === "issue" ? (
-              <IssueSteps
-                member={member}
-                pending={pending}
-                nonce={latest.nonce}
-                onScan={handleScan}
-                onClearMember={() => selectMember(null)}
-              />
-            ) : (
-              <ScanTarget
-                title={mode === "return" ? "Take a book back" : "Extend a due date"}
-                hint={
-                  mode === "return"
-                    ? "Scan the book. Any fine is worked out automatically."
-                    : "Scan the book. The new due date runs 15 days from today."
-                }
-                tint={active.tint}
-                pending={pending}
-                nonce={latest.nonce}
-                onScan={handleScan}
-                placeholder={mode === "return" ? "Scan to return…" : "Scan to renew…"}
-              />
-            )}
-
-            <ScanFeedback state={latest} />
-          </CardContent>
-        </Card>
-
-        {/* Only in issue mode: in return/renew the book in hand is the
-            subject, not a member. */}
-        {member && mode === "issue" ? (
-          <MemberPanel
-            member={member}
-            onClear={() => selectMember(null)}
-            renewAction={renewAction}
-            renewPending={renewPending}
-          />
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-4">
-        <MemberSearch selected={member} onSelect={selectMember} />
-        <BookSearch />
-        <RecentList items={recent} />
-      </div>
+      <RecentList items={recent} />
     </div>
   );
 }
@@ -415,12 +414,14 @@ function IssueSteps({
   pending,
   nonce,
   onScan,
+  onSelectMember,
   onClearMember,
 }: {
   member: MemberHit | null;
   pending: boolean;
   nonce?: number;
   onScan: (value: string) => void;
+  onSelectMember: (member: MemberHit) => void;
   onClearMember: () => void;
 }) {
   const atLimit = member ? member.booksOut >= member.maxBooks : false;
@@ -452,9 +453,9 @@ function IssueSteps({
             </Button>
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm">
-            Search by name or roll number on the right.
-          </p>
+          // The search lives in the step that needs it, not in a separate
+          // panel competing with it.
+          <MemberSearch onSelect={onSelectMember} />
         )}
       </Step>
 
@@ -524,6 +525,7 @@ function Step({
  * copy and scan it, so there is nothing here to click by mistake.
  */
 function BookSearch() {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<BookHit[]>([]);
   const [searched, setSearched] = useState(false);
@@ -554,15 +556,37 @@ function BookSearch() {
     if (debounce.current) clearTimeout(debounce.current);
   }, []);
 
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-muted-foreground hover:text-foreground flex items-center gap-2 self-start text-sm transition-colors"
+      >
+        <SearchIcon className="size-4" />
+        Which copy do I fetch?
+      </button>
+    );
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Find a book</CardTitle>
-        <CardDescription>
-          Search the shelf by title, author or ISBN.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 border-t pt-4">
+      <>
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="text-sm font-medium">Find a book on the shelf</h4>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setOpen(false);
+              onQueryChange("");
+            }}
+          >
+            <XIcon />
+            Close
+          </Button>
+        </div>
+
         <div className="relative">
           <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
           <Input
@@ -570,6 +594,7 @@ function BookSearch() {
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder="Title, author or ISBN"
             className="pl-9"
+            autoFocus
             aria-label="Search books"
           />
           {searching ? (
@@ -623,18 +648,12 @@ function BookSearch() {
             )}
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </>
+    </div>
   );
 }
 
-function MemberSearch({
-  selected,
-  onSelect,
-}: {
-  selected: MemberHit | null;
-  onSelect: (member: MemberHit | null) => void;
-}) {
+function MemberSearch({ onSelect }: { onSelect: (member: MemberHit) => void }) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<MemberHit[]>([]);
   const [searching, startSearch] = useTransition();
@@ -664,13 +683,11 @@ function MemberSearch({
     if (debounce.current) clearTimeout(debounce.current);
   }, []);
 
+  // Lives inside step 1 of the issue wizard, so it renders bare — a card
+  // here would be a second place to do the same job.
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Member</CardTitle>
-        <CardDescription>Search by name or roll number.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
+      <>
         <div className="relative">
           <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
           <Input
@@ -678,32 +695,13 @@ function MemberSearch({
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder="Name or roll number"
             className="pl-9"
+            autoFocus
             aria-label="Search members"
           />
           {searching ? (
             <Spinner className="text-muted-foreground absolute top-1/2 right-3 size-4 -translate-y-1/2" />
           ) : null}
         </div>
-
-        {selected ? (
-          <div className="flex items-start gap-2 rounded-lg border p-3">
-            <UserRoundIcon className="mt-0.5 size-4 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{selected.fullName}</p>
-              <p className="text-muted-foreground truncate text-xs">
-                {selected.rollNumber ?? "—"} · {selected.booksOut}/{selected.maxBooks} books
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Clear member"
-              onClick={() => onSelect(null)}
-            >
-              <XIcon />
-            </Button>
-          </div>
-        ) : null}
 
         {hits.length ? (
           <ul className="flex flex-col gap-1">
@@ -745,8 +743,8 @@ function MemberSearch({
             No member matches “{query.trim()}”.
           </p>
         ) : null}
-      </CardContent>
-    </Card>
+      </>
+    </div>
   );
 }
 
