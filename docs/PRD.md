@@ -297,6 +297,8 @@ Approval normally happens at the counter (C-12 … C-16). This screen exists for
 | S-1 | View all librarian accounts. |
 | S-2 | Create a new librarian account, with a confirmation step noting it grants full access. |
 | S-3 | A librarian cannot deactivate their own account (prevents lockout). |
+| S-4 | The **last active** librarian cannot be deactivated — that would leave the library with no way in for anyone. |
+| S-5 | A deactivated librarian loses access immediately, enforced at the database and not only in the app. |
 
 ### 4.7 Member portal (read-only)
 
@@ -370,11 +372,24 @@ Security is enforced at the **database**, not the interface. Even a user calling
 | SEC-4 | Every business rule (limits, fines, fine-before-renew) is enforced in the database, not only in the UI. |
 | SEC-5 | Administrative credentials never reach the browser. |
 | SEC-6 | Public registration can only ever create a **pending member**. It can never create a librarian, and can never create an already-active account, regardless of what is submitted. |
+| SEC-7 | Every privileged operation re-verifies the caller is a librarian at the point of execution. |
+| SEC-8 | Fine collection and waiver record the acting librarian for accountability. |
 | SEC-9 | A pending or rejected account cannot borrow, cannot be issued a book by any means, and cannot read catalogue or loan data. |
 | SEC-10 | An applicant cannot set their own approval status, role, or borrowing limit — those fields are ignored on submission and set only by a librarian. |
 | SEC-11 | While the registration toggle is off, registration is rejected **at the database**, not merely hidden in the interface. |
-| SEC-7 | Every privileged operation re-verifies the caller is a librarian at the point of execution. |
-| SEC-8 | Fine collection and waiver record the acting librarian for accountability. |
+| SEC-12 | An applicant can only complete **their own** registration. Passing another person's user id is refused. |
+
+> **Operational dependency for public registration.** The in-app toggle is
+> necessary but not sufficient: Supabase's own **Authentication → Sign In /
+> Providers → "Allow new users to sign up"** must also be enabled, because
+> `auth.signUp()` is the only way an anonymous person can create an account.
+> With it off, `/register` returns *"Signups not allowed for this instance"*
+> however the in-app toggle is set.
+>
+> Leaving the provider setting **off** is a valid deployment choice — it makes
+> the library counter the only way in, and the in-app toggle then has no
+> effect. Turn the provider setting on only when public registration is
+> genuinely wanted; the in-app toggle remains the day-to-day control.
 
 ### 6.2 Usability
 

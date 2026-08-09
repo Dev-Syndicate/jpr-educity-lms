@@ -20,8 +20,10 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
           </span>
         </div>
 
-        <div className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-sm">{children}</div>
+        <div className="flex flex-1 items-center justify-center py-8">
+          {/* Sized by the page, not here: login wants a narrow column, the
+              register form's two-column grid wants a wider one. */}
+          <div className="w-full">{children}</div>
         </div>
       </div>
 

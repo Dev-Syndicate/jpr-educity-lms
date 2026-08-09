@@ -7,6 +7,7 @@ import {
   LibraryBigIcon,
   ScanBarcodeIcon,
   SettingsIcon,
+  ShieldCheckIcon,
   UserRoundCheckIcon,
   UsersIcon,
 } from "lucide-react";
@@ -39,6 +40,7 @@ const MANAGE = [
   { title: "Books", url: "/books", icon: LibraryBigIcon },
   { title: "Members", url: "/members", icon: UsersIcon },
   { title: "Registrations", url: "/registrations", icon: UserRoundCheckIcon },
+  { title: "Librarians", url: "/staff", icon: ShieldCheckIcon },
 ];
 
 export function AppSidebar({

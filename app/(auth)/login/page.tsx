@@ -25,7 +25,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
     .single();
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-sm flex-col gap-6">
       <div className="flex flex-col gap-1 text-center lg:text-left">
         <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
         <p className="text-muted-foreground text-sm text-balance">

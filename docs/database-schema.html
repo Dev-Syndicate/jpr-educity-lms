@@ -562,6 +562,10 @@
   <li>A <code>BEFORE UPDATE</code> trigger rejects any change to <code>role</code>, <code>member_type</code>, <code>roll_number</code> or <code>is_active</code> from a non-librarian — and fires regardless of what the policies say.</li>
 </ul>
 
+<p class="lede">There is exactly one place where a non-librarian legitimately writes those columns: <code>register_member()</code>, which stamps a new applicant as a pending member. The trigger cannot simply be skipped for <code>SECURITY DEFINER</code> callers — <code>auth.uid()</code> is a request-level setting that <em>persists</em> into a definer function, so the applicant still looks like themselves from inside it. Instead <code>register_member()</code> sets a transaction-local flag that the trigger honours:</p>
+<pre style="background: var(--code-bg); padding: .9rem 1.1rem; border-radius: var(--radius); overflow-x: auto; font-size: .85rem; margin: 0 0 1rem;"><code>perform set_config('app.privileged_write', 'on', true);  -- true = this txn only</code></pre>
+<p class="lede" style="margin-top:-.5rem">The flag is not a hole an attacker can climb through: <code>set_config</code> is reachable from SQL, but a member has <strong>no UPDATE policy</strong> on <code>profiles</code>, so RLS refuses the write before the trigger is ever consulted. The flag only relaxes the second of the two barriers, and only inside the transaction that set it.</p>
+
 <h3>Dates are Indian, not UTC</h3>
 <p class="lede">Supabase servers run in UTC. Between midnight and 05:30 IST, <code>current_date</code> still reports <em>yesterday</em> in India — which would undercount a day of fine and could record a morning return as having happened the day before. Every date calculation goes through one function instead:</p>
 <pre style="background: var(--code-bg); padding: .9rem 1.1rem; border-radius: var(--radius); overflow-x: auto; font-size: .85rem; margin: 0 0 1rem;"><code>create function public.today_ist() returns date
