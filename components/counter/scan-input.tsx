@@ -99,8 +99,8 @@ export function ScanInput({
       }}
     >
       <div className="relative">
-        <span className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2">
-          {pending ? <Spinner className="size-6" /> : <ScanBarcodeIcon className="size-6" />}
+        <span className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2">
+          {pending ? <Spinner className="size-5" /> : <ScanBarcodeIcon className="size-5" />}
         </span>
         <Input
           ref={ref}
@@ -117,7 +117,9 @@ export function ScanInput({
           aria-busy={pending}
           aria-label="Scan or type an accession number"
           placeholder={placeholder ?? "Scan a book barcode…"}
-          className="h-16 pl-13 text-center font-mono text-2xl tracking-widest md:text-2xl"
+          // Still the largest field in the app — a barcode is read back at a
+          // glance — but no longer billboard-sized.
+          className="h-12 pl-11 text-center font-mono text-lg tracking-wider md:text-lg"
         />
       </div>
     </form>

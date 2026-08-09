@@ -48,7 +48,7 @@ export function ScanFeedback({ state }: { state: ActionState<unknown> }) {
 
   if (!settled) {
     return (
-      <div className="text-muted-foreground flex min-h-24 items-center justify-center rounded-xl border border-dashed text-sm">
+      <div className="text-muted-foreground flex min-h-14 items-center justify-center rounded-lg border border-dashed text-sm">
         Scan a book to begin.
       </div>
     );
@@ -61,18 +61,16 @@ export function ScanFeedback({ state }: { state: ActionState<unknown> }) {
       aria-live="assertive"
       className={
         ok
-          ? "bg-available-subtle text-available flex min-h-24 items-start gap-4 rounded-xl p-5"
-          : "bg-overdue-subtle text-overdue flex min-h-24 items-start gap-4 rounded-xl p-5"
+          ? "bg-available-subtle text-available flex min-h-14 items-center gap-3 rounded-lg px-4 py-3"
+          : "bg-overdue-subtle text-overdue flex min-h-14 items-center gap-3 rounded-lg px-4 py-3"
       }
     >
       {ok ? (
-        <CheckCircle2Icon className="mt-0.5 size-8 shrink-0" />
+        <CheckCircle2Icon className="size-5 shrink-0" />
       ) : (
-        <XCircleIcon className="mt-0.5 size-8 shrink-0" />
+        <XCircleIcon className="size-5 shrink-0" />
       )}
-      <p className="text-xl leading-snug font-semibold text-balance">
-        {state.message}
-      </p>
+      <p className="leading-snug font-medium text-balance">{state.message}</p>
     </div>
   );
 }
