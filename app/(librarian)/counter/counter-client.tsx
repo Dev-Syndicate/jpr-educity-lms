@@ -253,59 +253,62 @@ export function CounterClient() {
   }, []);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <ModeSelector mode={mode} onChange={setPinnedMode} />
+    // The work is one column; Recent is a log beside it, not a step below it.
+    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="flex flex-col gap-4">
+        <ModeSelector mode={mode} onChange={setPinnedMode} />
 
-      <Card className="overflow-hidden pt-0">
-        {/* The active mode's colour runs across the top of the card, so the
-            operation is identifiable before reading a word. */}
-        <div className={cn("h-1 w-full", active.tint.bar)} />
+        <Card className="overflow-hidden pt-0">
+          {/* The active mode's colour runs across the top of the card, so the
+              operation is identifiable before reading a word. */}
+          <div className={cn("h-1 w-full", active.tint.bar)} />
 
-        <CardContent className="flex flex-col gap-5 pt-5">
-          {mode === "issue" ? (
-            <IssueSteps
-              member={member}
-              pending={pending}
-              nonce={latest.nonce}
-              onScan={handleScan}
-              onSelectMember={selectMember}
-              onClearMember={() => selectMember(null)}
-            />
-          ) : (
-            <ScanTarget
-              title={mode === "return" ? "Take a book back" : "Extend a due date"}
-              hint={
-                mode === "return"
-                  ? "Scan the book. Any fine is worked out automatically."
-                  : "Scan the book. The new due date runs 15 days from today."
-              }
-              tint={active.tint}
-              pending={pending}
-              nonce={latest.nonce}
-              onScan={handleScan}
-              placeholder={mode === "return" ? "Scan to return…" : "Scan to renew…"}
-            />
-          )}
+          <CardContent className="flex flex-col gap-5 pt-5">
+            {mode === "issue" ? (
+              <IssueSteps
+                member={member}
+                pending={pending}
+                nonce={latest.nonce}
+                onScan={handleScan}
+                onSelectMember={selectMember}
+                onClearMember={() => selectMember(null)}
+              />
+            ) : (
+              <ScanTarget
+                title={mode === "return" ? "Take a book back" : "Extend a due date"}
+                hint={
+                  mode === "return"
+                    ? "Scan the book. Any fine is worked out automatically."
+                    : "Scan the book. The new due date runs 15 days from today."
+                }
+                tint={active.tint}
+                pending={pending}
+                nonce={latest.nonce}
+                onScan={handleScan}
+                placeholder={mode === "return" ? "Scan to return…" : "Scan to renew…"}
+              />
+            )}
 
-          <ScanFeedback state={latest} />
+            <ScanFeedback state={latest} />
 
-          {/* Occasional lookup — "which copy do I fetch?" — so it stays shut
-              until asked for rather than sitting open beside the scan field. */}
-          <BookSearch />
-        </CardContent>
-      </Card>
+            {/* Occasional lookup — "which copy do I fetch?" — so it stays shut
+                until asked for rather than sitting open beside the scan field. */}
+            <BookSearch />
+          </CardContent>
+        </Card>
 
-      {/* Only in issue mode: in return/renew the book in hand is the
-          subject, not a member. */}
-      {member && mode === "issue" ? (
-        <MemberPanel
-          member={member}
-          onClear={() => selectMember(null)}
-          renewAction={renewAction}
-          renewPending={renewPending}
-          loansKey={loansKey}
-        />
-      ) : null}
+        {/* Only in issue mode: in return/renew the book in hand is the
+            subject, not a member. */}
+        {member && mode === "issue" ? (
+          <MemberPanel
+            member={member}
+            onClear={() => selectMember(null)}
+            renewAction={renewAction}
+            renewPending={renewPending}
+            loansKey={loansKey}
+          />
+        ) : null}
+      </div>
 
       <RecentList items={recent} />
     </div>
@@ -900,10 +903,12 @@ function MemberLoansList({
 }
 
 function RecentList({ items }: { items: Recent[] }) {
+  // Nothing yet is nothing to show — an empty card would take a column of
+  // space to say so.
   if (!items.length) return null;
 
   return (
-    <Card>
+    <Card className="xl:sticky xl:top-4">
       <CardHeader>
         <CardTitle>Recent</CardTitle>
         <CardDescription>This session, newest first.</CardDescription>
