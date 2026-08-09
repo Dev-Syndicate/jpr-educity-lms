@@ -1,7 +1,14 @@
 "use client";
 
 import { SearchIcon, UserRoundIcon, XIcon } from "lucide-react";
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 
 import { ScanFeedback } from "@/components/counter/scan-feedback";
 import { ScanInput } from "@/components/counter/scan-input";
@@ -91,19 +98,25 @@ export function CounterClient() {
     const fd = new FormData();
     fd.set("accessionNumber", accession);
 
-    if (member) {
-      fd.set("memberId", member.id);
-      if (member.accountStatus === "pending") {
-        // Approve and issue in one transaction — if the issue fails, the
-        // approval rolls back too.
-        fd.set("memberType", member.memberType ?? "student");
-        approveAction(fd);
+    // Dispatched from a scan, not from a form action prop, so the transition
+    // has to be explicit. Without it React warns and — worse here — the
+    // *Pending flags never flip, so the field would not show it is busy and
+    // would not clear and refocus after the action settles.
+    startTransition(() => {
+      if (member) {
+        fd.set("memberId", member.id);
+        if (member.accountStatus === "pending") {
+          // Approve and issue in one transaction — if the issue fails, the
+          // approval rolls back too.
+          fd.set("memberType", member.memberType ?? "student");
+          approveAction(fd);
+        } else {
+          issueAction(fd);
+        }
       } else {
-        issueAction(fd);
+        returnAction(fd);
       }
-    } else {
-      returnAction(fd);
-    }
+    });
   }
 
   // Esc clears the member slot.
@@ -406,7 +419,10 @@ function MemberLoansList({
             onClick={() => {
               const fd = new FormData();
               fd.set("loanId", loan.id!);
-              renewAction(fd);
+              // Explicit transition: dispatched from onClick, not a form
+              // action prop, so renewPending would otherwise never flip and
+              // this button would stay clickable during the request.
+              startTransition(() => renewAction(fd));
             }}
           >
             Renew
