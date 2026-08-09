@@ -24,6 +24,7 @@ import {
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   approveAndIssue,
   issueBook,
@@ -39,6 +40,22 @@ type Recent = {
   what: string;
   ok: boolean;
 };
+
+type Mode = "issue" | "return" | "renew";
+
+const MODES: { value: Mode; label: string; hint: string }[] = [
+  {
+    value: "issue",
+    label: "Issue",
+    hint: "Scan each book to issue it. Press Esc when this member is done.",
+  },
+  { value: "return", label: "Return", hint: "Scan any book to return it." },
+  {
+    value: "renew",
+    label: "Renew",
+    hint: "Scan a book to extend its due date. No member needed.",
+  },
+];
 
 /**
  * The counter.
@@ -56,6 +73,21 @@ export function CounterClient() {
   const [member, setMember] = useState<MemberHit | null>(null);
   const [recent, setRecent] = useState<Recent[]>([]);
   const recentId = useRef(0);
+
+  /**
+   * null = follow the member slot (issue when one is loaded, return when
+   * not). Picking a mode explicitly pins it until the librarian picks
+   * another or clears the member.
+   *
+   * Inference alone was ambiguous: the screen said "Return a book" with no
+   * indication of why, or how to do anything else.
+   */
+  const [pinnedMode, setPinnedMode] = useState<Mode | null>(null);
+
+  // A pin of "issue" is meaningless without someone to issue to, so it falls
+  // back rather than leaving the counter in a mode it cannot act on.
+  const effectivePin = pinnedMode === "issue" && !member ? null : pinnedMode;
+  const mode: Mode = effectivePin ?? (member ? "issue" : "return");
 
   const [issueState, issueAction, issuePending] = useActionState(issueBook, idleState);
   const [returnState, returnAction, returnPending] = useActionState(returnBook, idleState);
@@ -90,6 +122,9 @@ export function CounterClient() {
       const data = latest.data as IssueResult | undefined;
       if (data?.loansOut !== undefined && data.loansOut >= data.maxLoans) {
         setMember(null);
+        // Unpin only if the pin was Issue, which is now impossible without a
+        // member. An explicit Renew or Return stays as the librarian set it.
+        setPinnedMode((pin) => (pin === "issue" ? null : pin));
       }
     }
   }, [latest, member]);
@@ -103,26 +138,51 @@ export function CounterClient() {
     // *Pending flags never flip, so the field would not show it is busy and
     // would not clear and refocus after the action settles.
     startTransition(() => {
-      if (member) {
-        fd.set("memberId", member.id);
-        if (member.accountStatus === "pending") {
-          // Approve and issue in one transaction — if the issue fails, the
-          // approval rolls back too.
-          fd.set("memberType", member.memberType ?? "student");
-          approveAction(fd);
-        } else {
-          issueAction(fd);
-        }
-      } else {
+      if (mode === "renew") {
+        // renewLoan resolves the open loan from the accession number, so a
+        // renew needs no member loaded.
+        renewAction(fd);
+        return;
+      }
+
+      if (mode === "return") {
         returnAction(fd);
+        return;
+      }
+
+      // Issue. Guarded by the UI (the mode is disabled without a member) and
+      // by issue_book(), which refuses a missing member.
+      if (!member) return;
+
+      fd.set("memberId", member.id);
+      if (member.accountStatus === "pending") {
+        // Approve and issue in one transaction — if the issue fails, the
+        // approval rolls back too.
+        fd.set("memberType", member.memberType ?? "student");
+        approveAction(fd);
+      } else {
+        issueAction(fd);
       }
     });
+  }
+
+  /**
+   * Loading or clearing a member drops back to the inferred mode, so picking
+   * someone always lands on Issue rather than leaving the counter pinned to
+   * Return from a previous book.
+   */
+  function selectMember(next: MemberHit | null) {
+    setMember(next);
+    setPinnedMode(null);
   }
 
   // Esc clears the member slot.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMember(null);
+      if (e.key === "Escape") {
+        setMember(null);
+        setPinnedMode(null);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -133,21 +193,37 @@ export function CounterClient() {
       <div className="flex flex-col gap-4">
         <Card>
           <CardHeader>
+            {/* mode === "issue" implies a member is loaded — see
+                effectivePin above. */}
             <CardTitle>
-              {member ? `Issuing to ${member.fullName}` : "Return a book"}
+              {mode === "issue"
+                ? `Issue to ${member!.fullName}`
+                : mode === "renew"
+                  ? "Renew a book"
+                  : "Return a book"}
             </CardTitle>
             <CardDescription>
-              {member
-                ? "Scan each book to issue it. Press Esc when this member is done."
-                : "Scan any book to return it. Load a member first to issue instead."}
+              {MODES.find((m) => m.value === mode)!.hint}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
+            <ModeSelector
+              mode={mode}
+              memberLoaded={Boolean(member)}
+              onChange={setPinnedMode}
+            />
+
             <ScanInput
               pending={pending}
               nonce={latest.nonce}
               onScan={handleScan}
-              placeholder={member ? "Scan to issue…" : "Scan to return…"}
+              placeholder={
+                mode === "issue"
+                  ? "Scan to issue…"
+                  : mode === "renew"
+                    ? "Scan to renew…"
+                    : "Scan to return…"
+              }
             />
             <ScanFeedback state={latest} />
           </CardContent>
@@ -156,7 +232,7 @@ export function CounterClient() {
         {member ? (
           <MemberPanel
             member={member}
-            onClear={() => setMember(null)}
+            onClear={() => selectMember(null)}
             renewAction={renewAction}
             renewPending={renewPending}
           />
@@ -164,10 +240,55 @@ export function CounterClient() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <MemberSearch selected={member} onSelect={setMember} />
+        <MemberSearch selected={member} onSelect={selectMember} />
         <RecentList items={recent} />
       </div>
     </div>
+  );
+}
+
+/**
+ * What the next scan will do.
+ *
+ * The mode still follows the member slot by default, so the common path is
+ * unchanged — load a member and scan, or scan with no member to return. This
+ * only makes that state visible and lets the librarian override it, which
+ * inference alone could not express.
+ */
+function ModeSelector({
+  mode,
+  memberLoaded,
+  onChange,
+}: {
+  mode: Mode;
+  memberLoaded: boolean;
+  onChange: (mode: Mode | null) => void;
+}) {
+  return (
+    <ToggleGroup
+      value={[mode]}
+      onValueChange={(value) => {
+        // Base UI hands back an array; single-select yields at most one. An
+        // empty array means the active item was clicked again — keep the
+        // mode rather than leaving the counter with none.
+        const next = value[0] as Mode | undefined;
+        if (next) onChange(next);
+      }}
+      variant="outline"
+      spacing={0}
+      aria-label="What the next scan does"
+    >
+      {MODES.map((m) => (
+        <ToggleGroupItem
+          key={m.value}
+          value={m.value}
+          // Issuing needs someone to issue to.
+          disabled={m.value === "issue" && !memberLoaded}
+        >
+          {m.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   );
 }
 

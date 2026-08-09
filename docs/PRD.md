@@ -219,8 +219,8 @@ This is the most-used screen in the system and the one the product is judged on.
 | ID | Requirement |
 |---|---|
 | C-1 | Books are identified by scanning the accession number barcode (e.g. `JPR-00123`) with a USB scanner, which types the code and presses Enter. Manual typing must also work. |
-| C-2 | The operation mode is **inferred, not selected**: if a member is loaded, the next scan **issues** to them; if no member is loaded, the next scan **returns** that copy. |
-| C-3 | An explicit Issue / Return / Renew override is available for when inference is wrong, but the common path requires **zero clicks**. |
+| C-2 | The operation mode **defaults by inference**: if a member is loaded, the next scan **issues** to them; if no member is loaded, the next scan **returns** that copy. The inferred mode must be **shown on screen**, never left implicit — a librarian has to be able to see what the next scan will do before scanning. |
+| C-3 | An explicit Issue / Return / Renew selector overrides the inferred mode, and the common path still requires **zero clicks**. Selecting a member resets to the inferred mode, so picking someone always lands on Issue. Issue is unavailable while no member is loaded. |
 | C-4 | After a successful issue, the member stays loaded so the next book can be scanned immediately. A clear "next member" action resets. |
 | C-5 | The scan field is always focused — on load, after every operation, and when focus is lost. |
 | C-6 | The field clears after **every** scan, successful or failed, so consecutive scans cannot concatenate. |
