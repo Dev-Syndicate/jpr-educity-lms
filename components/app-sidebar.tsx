@@ -55,24 +55,17 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-              render={
-                <Link href="/dashboard">
-                  <span className="flex flex-col leading-tight">
-                    <span className="text-sidebar-primary text-[0.6rem] font-semibold tracking-[0.18em] uppercase">
-                      Jeppiaar Educity
-                    </span>
-                    <span className="text-base font-semibold">Library</span>
-                  </span>
-                </Link>
-              }
-            />
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {/* A wordmark, not a nav item: it sizes to its own two lines rather
+            than to a menu row, so it does not sit in an oversized box. */}
+        <Link
+          href="/dashboard"
+          className="hover:bg-sidebar-accent flex flex-col gap-0.5 rounded-md px-2 py-1.5 leading-tight transition-colors"
+        >
+          <span className="text-sidebar-primary text-[0.6rem] font-semibold tracking-[0.18em] uppercase">
+            Jeppiaar Educity
+          </span>
+          <span className="text-base font-semibold">Library</span>
+        </Link>
       </SidebarHeader>
 
       <SidebarContent>

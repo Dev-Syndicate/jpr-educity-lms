@@ -334,7 +334,12 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-header"
       data-sidebar="header"
-      className={cn("flex flex-col gap-2 p-2", className)}
+      className={cn(
+        // pb-1: the first group below already carries py-2.5, so a matching
+        // bottom pad here would read as a gap rather than as breathing room.
+        "flex flex-col gap-2 px-3 pt-3 pb-1 group-data-[collapsible=icon]:px-2",
+        className
+      )}
       {...props}
     />
   )
@@ -345,7 +350,10 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-footer"
       data-sidebar="footer"
-      className={cn("flex flex-col gap-2 p-2", className)}
+      className={cn(
+        "flex flex-col gap-2 px-3 py-3 group-data-[collapsible=icon]:px-2",
+        className
+      )}
       {...props}
     />
   )
@@ -384,7 +392,12 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-group"
       data-sidebar="group"
-      className={cn("relative flex w-full min-w-0 flex-col p-2", className)}
+      className={cn(
+        // px-3 while expanded; the icon rail is only 3rem wide, so it falls
+        // back to p-2 there or the square buttons overflow it.
+        "relative flex w-full min-w-0 flex-col gap-1 px-3 py-2.5 group-data-[collapsible=icon]:px-2",
+        className
+      )}
       {...props}
     />
   )
@@ -457,7 +470,7 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
     <ul
       data-slot="sidebar-menu"
       data-sidebar="menu"
-      className={cn("flex w-full min-w-0 flex-col gap-0", className)}
+      className={cn("flex w-full min-w-0 flex-col gap-1", className)}
       {...props}
     />
   )
