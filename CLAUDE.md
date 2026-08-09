@@ -111,18 +111,37 @@ break it.
 - A token added to `:root` but not `.dark` silently keeps its light value in
   dark mode and breaks contrast. Always define both.
 
-**Domain tokens** (beyond the standard shadcn set) — each has a solid, a
-`-foreground`, and a `-subtle` background for badges:
+**Brand palette** — taken from the Jeppiaar Educity crest: deep forest green
+with gold.
+
+| Token | Use |
+|---|---|
+| `primary` | forest green on light, gold on dark — main actions |
+| `brand-deep` | the crest's darkest green — headers, sidebar, hero panels |
+| `gold` | crest gold — **only on dark green grounds** |
+| `gold-ink` | darkened gold — the only gold safe as text on light surfaces |
+
+> **Never put raw `gold` on a white background.** The crest gold scores 2.1:1
+> against white, well under the 4.5:1 minimum — it is effectively unreadable.
+> Use `text-gold-ink` (5.05:1) on light surfaces, and reserve `text-gold` for
+> dark green grounds like the sidebar (7.4:1).
+
+**Domain tokens** — each has a solid, a `-foreground`, and a `-subtle`
+background for badges:
 
 | Token | Meaning |
 |---|---|
-| `available` | copy is on the shelf |
+| `available` | copy is on the shelf (teal — deliberately *not* the brand green) |
 | `issued` | copy is out on loan |
 | `overdue` | past its due date — fine accruing |
-| `pending` | account awaiting librarian approval |
+| `pending` | account awaiting approval (orange — deliberately *not* the brand gold) |
 
 Use `destructive` for failed actions and irreversible controls, `overdue` for
 the circulation state. They are deliberately different tokens.
+
+Status colours are kept away from the brand hues on purpose: an "available"
+badge in the brand green, or a "pending" badge in the brand gold, would read as
+decoration rather than information.
 
 ---
 

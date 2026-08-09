@@ -8,6 +8,13 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
+  /* Brand -> bg-brand-deep, text-gold, text-gold-ink */
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-gold-ink: var(--gold-ink);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-deep-foreground: var(--brand-deep-foreground);
+
   /* Domain status colours -> bg-overdue, text-available, border-pending, ... */
   --color-available: var(--available);
   --color-available-foreground: var(--available-foreground);
@@ -77,74 +84,94 @@
    Tokens are mapped into Tailwind by the @theme inline block above, so every
    token below is usable as a utility class (--color-overdue -> text-overdue).
 
-   Brand: deep maroon, an academic tone that separates this from the stock
-   shadcn neutral palette. Hues are oklch(lightness chroma hue).
+   Brand: taken from the Jeppiaar Educity crest — deep forest green with gold.
+
+   ACCESSIBILITY NOTE ON GOLD. The logo gold (#D4AF37) scores only ~2:1 against
+   white, far below the 4.5:1 needed for text. So gold is used the way the
+   crest uses it: as an accent ON dark green grounds (sidebar, focus rings,
+   highlights), never as text on a light background. `--gold-ink` is a
+   darkened gold reserved for text on light surfaces.
+
+   Hues are oklch(lightness chroma hue).
    =========================================================================== */
 
 :root {
-  --background: oklch(0.994 0.002 90);
-  --foreground: oklch(0.185 0.012 25);
+  --background: oklch(0.993 0.003 110);
+  --foreground: oklch(0.205 0.022 145);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.185 0.012 25);
+  --card-foreground: oklch(0.205 0.022 145);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.185 0.012 25);
+  --popover-foreground: oklch(0.205 0.022 145);
 
-  /* Brand maroon. Primary actions: Issue, Approve, Save. */
-  --primary: oklch(0.395 0.128 15);
-  --primary-foreground: oklch(0.985 0.004 90);
+  /* Crest green. Primary actions: Issue, Approve, Save. */
+  --primary: oklch(0.335 0.062 142);
+  --primary-foreground: oklch(0.975 0.018 95);
 
-  --secondary: oklch(0.965 0.006 60);
-  --secondary-foreground: oklch(0.325 0.09 18);
+  --secondary: oklch(0.962 0.012 120);
+  --secondary-foreground: oklch(0.305 0.058 142);
 
-  --muted: oklch(0.965 0.005 70);
-  --muted-foreground: oklch(0.545 0.015 45);
+  --muted: oklch(0.963 0.008 120);
+  --muted-foreground: oklch(0.522 0.022 135);
 
-  --accent: oklch(0.955 0.022 40);
-  --accent-foreground: oklch(0.345 0.098 18);
+  --accent: oklch(0.952 0.038 100);
+  --accent-foreground: oklch(0.318 0.06 142);
 
   --destructive: oklch(0.545 0.208 27);
   --destructive-foreground: oklch(0.985 0.004 90);
 
-  --border: oklch(0.905 0.008 60);
-  --input: oklch(0.905 0.008 60);
-  --ring: oklch(0.395 0.128 15);
+  --border: oklch(0.902 0.012 120);
+  --input: oklch(0.902 0.012 120);
+  --ring: oklch(0.335 0.062 142);
+
+  /* ---- Brand tokens ----------------------------------------------------
+     --gold        the crest gold. Use ON dark green only (sidebar, banners).
+     --gold-ink    darkened gold, passes contrast as text on light surfaces.
+     --brand-deep  the crest's darkest green, for headers and the sidebar. */
+  --gold: oklch(0.798 0.132 88);
+  --gold-foreground: oklch(0.245 0.045 142);
+  --gold-ink: oklch(0.545 0.098 82);
+  --brand-deep: oklch(0.285 0.052 142);
+  --brand-deep-foreground: oklch(0.975 0.018 95);
 
   /* ---- Domain status tokens -------------------------------------------
      Circulation states. Used by badges, the counter feedback banner, and
      due-date text. Defined once so "overdue red" is the same red everywhere. */
-  --available: oklch(0.52 0.115 155);          /* copy on the shelf */
+  /* Shifted toward teal so "available" never reads as the brand green. */
+  --available: oklch(0.545 0.112 175);         /* copy on the shelf */
   --available-foreground: oklch(0.985 0.004 90);
-  --available-subtle: oklch(0.955 0.032 155);  /* badge background */
+  --available-subtle: oklch(0.955 0.034 175);  /* badge background */
 
-  --issued: oklch(0.545 0.115 240);            /* copy out on loan */
+  --issued: oklch(0.545 0.115 250);            /* copy out on loan */
   --issued-foreground: oklch(0.985 0.004 90);
-  --issued-subtle: oklch(0.955 0.028 240);
+  --issued-subtle: oklch(0.955 0.028 250);
 
   --overdue: oklch(0.545 0.198 30);            /* past its due date */
   --overdue-foreground: oklch(0.985 0.004 90);
   --overdue-subtle: oklch(0.958 0.038 30);
 
-  --pending: oklch(0.605 0.135 75);            /* awaiting approval */
+  /* Pushed toward orange so it cannot be confused with the brand gold. */
+  --pending: oklch(0.598 0.142 58);            /* awaiting approval */
   --pending-foreground: oklch(0.985 0.004 90);
-  --pending-subtle: oklch(0.962 0.045 75);
+  --pending-subtle: oklch(0.958 0.048 58);
 
   --radius: 0.625rem;
 
-  --sidebar: oklch(0.978 0.006 60);
-  --sidebar-foreground: oklch(0.245 0.018 25);
-  --sidebar-primary: oklch(0.395 0.128 15);
-  --sidebar-primary-foreground: oklch(0.985 0.004 90);
-  --sidebar-accent: oklch(0.945 0.024 40);
-  --sidebar-accent-foreground: oklch(0.345 0.098 18);
-  --sidebar-border: oklch(0.902 0.009 60);
-  --sidebar-ring: oklch(0.395 0.128 15);
+  /* The sidebar carries the crest: deep green ground, gold active state. */
+  --sidebar: oklch(0.285 0.052 142);
+  --sidebar-foreground: oklch(0.948 0.016 95);
+  --sidebar-primary: oklch(0.798 0.132 88);
+  --sidebar-primary-foreground: oklch(0.245 0.045 142);
+  --sidebar-accent: oklch(0.352 0.058 142);
+  --sidebar-accent-foreground: oklch(0.968 0.02 95);
+  --sidebar-border: oklch(0.375 0.055 142);
+  --sidebar-ring: oklch(0.798 0.132 88);
 
-  --chart-1: oklch(0.455 0.145 15);
-  --chart-2: oklch(0.545 0.115 240);
-  --chart-3: oklch(0.52 0.115 155);
-  --chart-4: oklch(0.605 0.135 75);
-  --chart-5: oklch(0.505 0.095 300);
+  --chart-1: oklch(0.395 0.072 142);
+  --chart-2: oklch(0.665 0.126 88);
+  --chart-3: oklch(0.545 0.112 175);
+  --chart-4: oklch(0.545 0.115 250);
+  --chart-5: oklch(0.598 0.142 58);
 }
 
 /* Dark theme. Every token above must be redefined here — a missing token
@@ -152,63 +179,71 @@
    are lifted in lightness and dropped in chroma so they stay legible on a
    dark ground. */
 .dark {
-  --background: oklch(0.165 0.008 25);
-  --foreground: oklch(0.955 0.005 90);
+  --background: oklch(0.172 0.016 145);
+  --foreground: oklch(0.952 0.012 95);
 
-  --card: oklch(0.215 0.012 25);
-  --card-foreground: oklch(0.955 0.005 90);
-  --popover: oklch(0.215 0.012 25);
-  --popover-foreground: oklch(0.955 0.005 90);
+  --card: oklch(0.218 0.022 145);
+  --card-foreground: oklch(0.952 0.012 95);
+  --popover: oklch(0.218 0.022 145);
+  --popover-foreground: oklch(0.952 0.012 95);
 
-  --primary: oklch(0.735 0.115 18);
-  --primary-foreground: oklch(0.185 0.032 20);
+  /* On dark, gold becomes the primary — it is the crest's own figure colour
+     and carries far better contrast here than deep green would. */
+  --primary: oklch(0.802 0.128 88);
+  --primary-foreground: oklch(0.212 0.042 142);
 
-  --secondary: oklch(0.285 0.018 25);
-  --secondary-foreground: oklch(0.955 0.005 90);
+  --secondary: oklch(0.288 0.03 145);
+  --secondary-foreground: oklch(0.952 0.012 95);
 
-  --muted: oklch(0.285 0.014 30);
-  --muted-foreground: oklch(0.715 0.014 55);
+  --muted: oklch(0.285 0.024 145);
+  --muted-foreground: oklch(0.715 0.02 120);
 
-  --accent: oklch(0.318 0.032 20);
-  --accent-foreground: oklch(0.955 0.005 90);
+  --accent: oklch(0.322 0.04 142);
+  --accent-foreground: oklch(0.962 0.018 95);
 
   --destructive: oklch(0.685 0.178 25);
   --destructive-foreground: oklch(0.985 0.004 90);
 
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.735 0.115 18);
+  --ring: oklch(0.802 0.128 88);
 
-  --available: oklch(0.72 0.13 155);
-  --available-foreground: oklch(0.165 0.03 155);
-  --available-subtle: oklch(0.315 0.05 155);
+  --gold: oklch(0.822 0.126 88);
+  --gold-foreground: oklch(0.212 0.042 142);
+  --gold-ink: oklch(0.822 0.126 88);
+  --brand-deep: oklch(0.225 0.032 142);
+  --brand-deep-foreground: oklch(0.962 0.018 95);
 
-  --issued: oklch(0.715 0.11 240);
-  --issued-foreground: oklch(0.165 0.03 240);
-  --issued-subtle: oklch(0.305 0.045 240);
+  --available: oklch(0.735 0.118 175);
+  --available-foreground: oklch(0.165 0.032 175);
+  --available-subtle: oklch(0.315 0.05 175);
+
+  --issued: oklch(0.722 0.108 250);
+  --issued-foreground: oklch(0.165 0.03 250);
+  --issued-subtle: oklch(0.305 0.045 250);
 
   --overdue: oklch(0.715 0.16 30);
   --overdue-foreground: oklch(0.165 0.04 30);
   --overdue-subtle: oklch(0.325 0.06 30);
 
-  --pending: oklch(0.775 0.13 78);
-  --pending-foreground: oklch(0.175 0.04 78);
-  --pending-subtle: oklch(0.325 0.055 78);
+  --pending: oklch(0.765 0.135 62);
+  --pending-foreground: oklch(0.175 0.042 62);
+  --pending-subtle: oklch(0.322 0.058 62);
 
-  --sidebar: oklch(0.195 0.012 25);
-  --sidebar-foreground: oklch(0.945 0.005 90);
-  --sidebar-primary: oklch(0.735 0.115 18);
-  --sidebar-primary-foreground: oklch(0.185 0.032 20);
-  --sidebar-accent: oklch(0.298 0.028 20);
-  --sidebar-accent-foreground: oklch(0.955 0.005 90);
+  --sidebar: oklch(0.212 0.03 142);
+  --sidebar-foreground: oklch(0.942 0.014 95);
+  --sidebar-primary: oklch(0.822 0.126 88);
+  --sidebar-primary-foreground: oklch(0.212 0.042 142);
+  --sidebar-accent: oklch(0.302 0.042 142);
+  --sidebar-accent-foreground: oklch(0.962 0.018 95);
   --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.735 0.115 18);
+  --sidebar-ring: oklch(0.822 0.126 88);
 
-  --chart-1: oklch(0.735 0.115 18);
-  --chart-2: oklch(0.715 0.11 240);
-  --chart-3: oklch(0.72 0.13 155);
-  --chart-4: oklch(0.775 0.13 78);
-  --chart-5: oklch(0.695 0.095 300);
+  --chart-1: oklch(0.802 0.128 88);
+  --chart-2: oklch(0.665 0.09 142);
+  --chart-3: oklch(0.735 0.118 175);
+  --chart-4: oklch(0.722 0.108 250);
+  --chart-5: oklch(0.765 0.135 62);
 }
 
 @layer base {
