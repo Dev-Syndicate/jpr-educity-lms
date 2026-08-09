@@ -10,6 +10,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
+import { BrandMark } from "@/components/brand-mark";
 import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
@@ -63,13 +64,18 @@ export function MemberSidebar({
       <SidebarHeader className="border-sidebar-border border-b pb-3">
         <Link
           href="/my"
-          className="hover:bg-sidebar-accent flex flex-col gap-0.5 rounded-md px-2 py-1.5 leading-tight transition-colors"
+          className="hover:bg-sidebar-accent flex items-center gap-2.5 rounded-md px-2 py-1.5 leading-tight transition-colors"
         >
-          <span className="text-sidebar-primary text-[0.6rem] font-semibold tracking-[0.18em] uppercase">
-            Jeppiaar Educity
-          </span>
-          <span className="text-base leading-snug font-semibold text-balance">
-            Library
+          {/* Glyph, for the same reason as the librarian sidebar: --sidebar is
+              the tile's own green. */}
+          <BrandMark size={30} variant="glyph" className="shrink-0" />
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-sidebar-primary text-[0.6rem] font-semibold tracking-[0.18em] uppercase">
+              Jeppiaar Educity
+            </span>
+            <span className="text-base leading-snug font-semibold text-balance">
+              Library Management System
+            </span>
           </span>
         </Link>
       </SidebarHeader>

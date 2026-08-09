@@ -1,4 +1,4 @@
-import { LibraryBigIcon } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 
 /**
  * Two-column auth shell, after shadcn's login-02: form on the left, brand
@@ -12,11 +12,9 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">
         <div className="flex justify-center gap-2 md:justify-start">
-          <span className="flex items-center gap-2 font-medium">
-            <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-md">
-              <LibraryBigIcon className="size-4" />
-            </span>
-            Jeppiaar Educity Library
+          <span className="flex items-center gap-2.5 font-medium">
+            <BrandMark size={32} />
+            Jeppiaar Educity Library Management System
           </span>
         </div>
 
@@ -40,7 +38,9 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
         />
 
         <div className="relative flex h-full flex-col items-center justify-center gap-6 p-12 text-center">
-          <LibraryBigIcon className="text-gold size-16" strokeWidth={1.25} />
+          {/* Glyph, not the tile: this panel is already brand-deep, the exact
+              green the tile carries. */}
+          <BrandMark size={96} variant="glyph" />
           <div className="flex flex-col gap-2">
             <p className="text-gold text-xs font-semibold tracking-[0.3em] uppercase">
               Jeppiaar Educity
