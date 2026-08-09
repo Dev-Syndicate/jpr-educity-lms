@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { FormFeedback, SubmitButton, fieldErrors } from "@/components/form-feedback";
 import {
@@ -34,6 +34,24 @@ export type SettingsValues = {
 
 export function SettingsForm({ settings }: { settings: SettingsValues }) {
   const [state, action, pending] = useActionState(updateSettings, idleState);
+
+  /**
+   * Controlled, unlike the text inputs.
+   *
+   * With defaultChecked the switch ignored the value that arrives when the
+   * page revalidates after a save, so it could sit at odds with what is
+   * actually stored — and Base UI warned about exactly that. Seeded from the
+   * server value and re-seeded whenever it changes.
+   */
+  const [publicRegistration, setPublicRegistration] = useState(
+    settings.public_registration,
+  );
+  const [seeded, setSeeded] = useState(settings.public_registration);
+
+  if (seeded !== settings.public_registration) {
+    setSeeded(settings.public_registration);
+    setPublicRegistration(settings.public_registration);
+  }
 
   return (
     <form action={action} className="flex max-w-2xl flex-col gap-6">
@@ -123,7 +141,8 @@ export function SettingsForm({ settings }: { settings: SettingsValues }) {
               <Switch
                 id="publicRegistration"
                 name="publicRegistration"
-                defaultChecked={settings.public_registration}
+                checked={publicRegistration}
+                onCheckedChange={setPublicRegistration}
               />
               <FieldLabel htmlFor="publicRegistration">
                 Allow public registration
