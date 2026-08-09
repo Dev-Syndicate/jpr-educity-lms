@@ -39,15 +39,48 @@ verification link that is never delivered.
 
 ## 3. Run the migrations
 
-Either paste each file into the SQL Editor **in filename order**, or use the CLI:
+### Using the CLI (recommended)
 
 ```bash
+# 1. Authorise this machine. Opens a browser.
+pnpm dlx supabase login
+
+# 2. Find the project reference id (20-char string).
+pnpm dlx supabase projects list
+
+# 3. Link this folder to the project.
+#    Prompts for the DATABASE PASSWORD from project creation.
+#    Lost it? Project Settings -> Database -> Reset database password.
 pnpm dlx supabase link --project-ref <your-project-ref>
+
+# 4. Apply all migrations, in filename order.
 pnpm dlx supabase db push
 ```
 
-Order matters — helpers reference tables, policies call helpers, RPCs call
-everything.
+Useful afterwards:
+
+```bash
+pnpm dlx supabase migration list          # what has been applied
+pnpm dlx supabase db push --dry-run       # preview without applying
+pnpm dlx supabase projects api-keys --project-ref <ref>
+pnpm dlx supabase gen types typescript --linked > lib/database.types.ts
+```
+
+`supabase login` stores an access token on this machine — anything with shell
+access can then reach the project. `supabase logout` clears it.
+
+### Or by hand
+
+Paste each file into the SQL Editor **in filename order**. Order matters:
+helpers reference tables, policies call helpers, RPCs call everything.
+
+### What the CLI cannot do
+
+Two required steps have no CLI equivalent and must be done in the dashboard:
+
+- **Disabling email sign-up** (step 2 above) — the security step that stops
+  `auth.signUp()` bypassing the approval queue.
+- **Creating the first librarian user** (step 4 below).
 
 ---
 
