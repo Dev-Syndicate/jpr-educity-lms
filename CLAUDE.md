@@ -171,6 +171,33 @@ that bite hardest:
 
 ---
 
+## Changing the database schema
+
+**`docs/database-schema.html` is updated FIRST, before any SQL is written.**
+
+Adding a table or column, changing a constraint, altering a relationship,
+adding an enum value — the documentation changes first, then the migration
+follows it. Never the other way round, and never SQL alone.
+
+Order of work:
+
+1. Update [`docs/database-schema.html`](docs/database-schema.html) — the table
+   card, and the ER diagram if a relationship changed.
+2. Update [`docs/PRD.md`](docs/PRD.md) if a business rule changed with it.
+3. Write the migration in `supabase/migrations/`.
+4. Verify the SQL matches what the document now claims.
+
+Rationale: the diagram is how anyone new understands this system. A schema
+change that skips it leaves the documentation quietly wrong, and a wrong
+diagram is worse than none — people trust it and build on a false picture.
+Writing the doc first also forces the design decision to be made before the
+DDL, rather than reverse-engineered from whatever got typed.
+
+Migrations are **append-only** once applied to a shared database. Fix a
+mistake with a new migration, never by editing one that has already run.
+
+---
+
 ## Security: the database is the boundary
 
 The UI is never the enforcement point. Business rules live in Postgres
