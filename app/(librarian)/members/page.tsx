@@ -1,11 +1,19 @@
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, SearchXIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 
+import { ListPagination } from "@/components/list-pagination";
 import { SearchField } from "@/components/search-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -22,32 +30,39 @@ import { RegistrationActions } from "./registration-actions";
 
 export const metadata = { title: "Members · Jeppiaar Educity Library" };
 
+const PAGE_SIZE = 25;
+
 export default async function MembersPage(props: PageProps<"/members">) {
   await requireLibrarian();
 
-  const { q, status } = await props.searchParams;
+  const { q, status, page } = await props.searchParams;
   const query = typeof q === "string" ? q.trim() : "";
   const VALID = ["active", "pending", "rejected", "all"] as const;
   const filter = (VALID as readonly string[]).includes(String(status))
     ? (status as (typeof VALID)[number])
     : "active";
+  const pageNo = Math.max(1, Number(page) || 1);
+  const from = (pageNo - 1) * PAGE_SIZE;
 
   const supabase = await createClient();
   let request = supabase
     .from("profiles")
     .select(
       "id, full_name, roll_number, department, member_type, declared_member_type, account_status, is_active, rejection_reason",
+      { count: "exact" },
     )
     .eq("role", "member")
     .order("full_name")
-    .limit(100);
+    .range(from, from + PAGE_SIZE - 1);
 
   if (filter !== "all") request = request.eq("account_status", filter);
   if (query) {
     request = request.or(`full_name.ilike.%${query}%,roll_number.ilike.%${query}%`);
   }
 
-  const { data: members } = await request;
+  const { data: members, count } = await request;
+  const total = count ?? 0;
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const dues = members?.length
     ? (
@@ -68,7 +83,7 @@ export default async function MembersPage(props: PageProps<"/members">) {
   ];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <SearchField placeholder="Search name or roll number" />
         <Button
@@ -102,11 +117,49 @@ export default async function MembersPage(props: PageProps<"/members">) {
       </div>
 
       {!members?.length ? (
-        <Empty>
-          <EmptyTitle>No members</EmptyTitle>
-          <EmptyDescription>
-            {query ? `Nothing matches “${query}”.` : "Add a member to get started."}
-          </EmptyDescription>
+        <Empty className="flex-1">
+          <EmptyHeader>
+            <EmptyMedia variant="icon" className="size-12">
+              {query ? (
+                <SearchXIcon className="text-muted-foreground size-6" />
+              ) : (
+                <UsersIcon className="text-muted-foreground size-6" />
+              )}
+            </EmptyMedia>
+            <EmptyTitle>
+              {query
+                ? "No matches"
+                : filter === "pending"
+                  ? "No one waiting"
+                  : filter === "rejected"
+                    ? "Nothing rejected"
+                    : "No members yet"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {query
+                ? `Nothing matches “${query}”.`
+                : filter === "pending"
+                  ? "Nobody has applied for an account. Applicants are normally approved at the counter."
+                  : filter === "rejected"
+                    ? "No application has been turned down."
+                    : "Add a member to get started."}
+            </EmptyDescription>
+          </EmptyHeader>
+          {/* Only where it is the right next move: "add a member" is not the
+              answer to an empty pending or rejected list. */}
+          {!query && (filter === "active" || filter === "all") ? (
+            <EmptyContent>
+              <Button
+                nativeButton={false}
+                render={
+                  <Link href="/members/new">
+                    <PlusIcon />
+                    Add a member
+                  </Link>
+                }
+              />
+            </EmptyContent>
+          ) : null}
         </Empty>
       ) : (
         <Card className="overflow-hidden py-0">
@@ -190,6 +243,15 @@ export default async function MembersPage(props: PageProps<"/members">) {
           </Table>
         </Card>
       )}
+
+      <ListPagination
+        page={pageNo}
+        lastPage={lastPage}
+        total={total}
+        basePath="/members"
+        params={{ q: query, status: filter }}
+        label="members"
+      />
     </div>
   );
 }

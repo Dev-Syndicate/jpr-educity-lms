@@ -91,11 +91,8 @@ export function FineActions({
         </Dialog>
       </div>
 
-      {latest.message ? (
-        <div className="w-full max-w-md">
-          <FormFeedback state={latest} />
-        </div>
-      ) : null}
+      {/* Toast only: these sit inside table rows. */}
+      <FormFeedback state={latest} toastOnly />
     </div>
   );
 }

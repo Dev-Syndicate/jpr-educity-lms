@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
 // globals.css maps --font-sans/--font-mono into the Tailwind theme, so the
@@ -26,9 +26,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      {/* Toaster wraps the tree: Base UI's toast manager is context-based, so
+          anything calling toast() must render inside the provider. */}
       <body className="min-h-full flex flex-col">
-        {children}
-        <Toaster richColors position="top-center" />
+        <Toaster>{children}</Toaster>
       </body>
     </html>
   );

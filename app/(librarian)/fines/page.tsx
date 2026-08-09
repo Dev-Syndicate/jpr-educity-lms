@@ -1,10 +1,16 @@
-import Link from "next/link";
+import { CheckCircle2Icon, SearchXIcon } from "lucide-react";
 
+import { ListPagination } from "@/components/list-pagination";
 import { SearchField } from "@/components/search-field";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -90,15 +96,25 @@ export default async function FinesPage(props: PageProps<"/fines">) {
       ) : null}
 
       {!fines?.length ? (
-        <Empty>
-          <EmptyTitle>
-            {query ? "No matches" : "No outstanding fines"}
-          </EmptyTitle>
-          <EmptyDescription>
-            {query
-              ? `No unpaid fine matches “${query}”.`
-              : "Fines appear here once a book is returned late or an overdue book is brought to the counter."}
-          </EmptyDescription>
+        <Empty className="flex-1">
+          <EmptyHeader>
+            <EmptyMedia
+              variant="icon"
+              className={query ? "size-12" : "bg-available-subtle size-12"}
+            >
+              {query ? (
+                <SearchXIcon className="text-muted-foreground size-6" />
+              ) : (
+                <CheckCircle2Icon className="text-available size-6" />
+              )}
+            </EmptyMedia>
+            <EmptyTitle>{query ? "No matches" : "No outstanding fines"}</EmptyTitle>
+            <EmptyDescription>
+              {query
+                ? `No unpaid fine matches “${query}”.`
+                : "Fines appear here once a book is returned late or an overdue book is brought to the counter."}
+            </EmptyDescription>
+          </EmptyHeader>
         </Empty>
       ) : (
         <>
@@ -154,41 +170,14 @@ export default async function FinesPage(props: PageProps<"/fines">) {
             </Table>
           </Card>
 
-          {lastPage > 1 ? (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                Page {pageNo} of {lastPage} · {matches} fines
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pageNo <= 1}
-                  nativeButton={false}
-                  render={
-                    <Link
-                      href={`/fines?${new URLSearchParams({ ...(query && { q: query }), page: String(pageNo - 1) })}`}
-                    >
-                      Previous
-                    </Link>
-                  }
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pageNo >= lastPage}
-                  nativeButton={false}
-                  render={
-                    <Link
-                      href={`/fines?${new URLSearchParams({ ...(query && { q: query }), page: String(pageNo + 1) })}`}
-                    >
-                      Next
-                    </Link>
-                  }
-                />
-              </div>
-            </div>
-          ) : null}
+          <ListPagination
+            page={pageNo}
+            lastPage={lastPage}
+            total={matches}
+            basePath="/fines"
+            params={{ q: query }}
+            label="fines"
+          />
         </>
       )}
     </div>

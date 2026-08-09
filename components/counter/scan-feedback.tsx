@@ -3,7 +3,11 @@
 import { CheckCircle2Icon, XCircleIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
-import type { ActionState } from "@/lib/types";
+import { useActionToast } from "@/components/use-action-toast";
+import { idleState, type ActionState } from "@/lib/types";
+
+/** Stable reference, so passing it never re-fires the toast effect. */
+const IDLE = idleState;
 
 /**
  * Result of the last scan, sized to be read from a metre away.
@@ -14,6 +18,12 @@ import type { ActionState } from "@/lib/types";
 export function ScanFeedback({ state }: { state: ActionState<unknown> }) {
   const settled = Boolean(state.message);
   const ok = state.ok;
+
+  // A failure also raises a toast. The banner alone assumes the librarian is
+  // looking at the screen; they are usually looking at the book, and a
+  // refused scan must not pass unnoticed. Successes stay banner-only — one
+  // toast per book at scanning speed would bury the screen.
+  useActionToast(ok ? IDLE : state);
 
   // A short beep. Librarians listen more than they read once they are in
   // rhythm, and the two tones are distinguishable without looking up.

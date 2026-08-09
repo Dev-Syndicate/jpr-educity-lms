@@ -1,3 +1,4 @@
+import { CheckCircle2Icon, ScanBarcodeIcon } from "lucide-react";
 import Link from "next/link";
 
 import { SectionCards, type Stat } from "@/components/section-cards";
@@ -9,7 +10,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -80,7 +88,10 @@ export default async function DashboardPage() {
     <>
       <SectionCards stats={stats} />
 
-      <Card>
+      {/* Grows into the space below the stat cards, so a short list does not
+          leave a void down the page — the empty state centres in the card
+          instead of stranding it at the top. */}
+      <Card className="flex-1">
         <CardHeader>
           <CardTitle>Overdue books</CardTitle>
           <CardDescription>
@@ -139,10 +150,35 @@ export default async function DashboardPage() {
           </Table>
         ) : (
           <Empty>
-            <EmptyTitle>Nothing overdue</EmptyTitle>
-            <EmptyDescription>
-              Every book on loan is within its due date.
-            </EmptyDescription>
+            <EmptyHeader>
+              <EmptyMedia variant="icon" className="bg-available-subtle size-12">
+                <CheckCircle2Icon className="text-available size-6" />
+              </EmptyMedia>
+              <EmptyTitle>Nothing overdue</EmptyTitle>
+              <EmptyDescription>
+                {openLoans.count
+                  ? `All ${openLoans.count} book(s) on loan are within their due date.`
+                  : "No books are on loan right now."}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link href="/counter">
+                      <ScanBarcodeIcon />
+                      Open the counter
+                    </Link>
+                  }
+                />
+                <Button
+                  variant="outline"
+                  nativeButton={false}
+                  render={<Link href="/loans">All loans</Link>}
+                />
+              </div>
+            </EmptyContent>
           </Empty>
         )}
       </Card>

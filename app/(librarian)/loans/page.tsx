@@ -1,11 +1,20 @@
+import { BookOpenIcon, ScanBarcodeIcon, SearchXIcon } from "lucide-react";
 import Link from "next/link";
 
+import { ListPagination } from "@/components/list-pagination";
 import { LoanActions } from "@/components/loan-actions";
 import { SearchField } from "@/components/search-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -19,6 +28,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Loans · Jeppiaar Educity Library" };
 
+const PAGE_SIZE = 25;
+
 const TABS = [
   { key: "all", label: "All" },
   { key: "due-today", label: "Due today" },
@@ -28,9 +39,11 @@ const TABS = [
 export default async function LoansPage(props: PageProps<"/loans">) {
   await requireLibrarian();
 
-  const { filter, q } = await props.searchParams;
+  const { filter, q, page } = await props.searchParams;
   const active = typeof filter === "string" ? filter : "all";
   const query = typeof q === "string" ? q.trim() : "";
+  const pageNo = Math.max(1, Number(page) || 1);
+  const from = (pageNo - 1) * PAGE_SIZE;
 
   const supabase = await createClient();
   const { data: today } = await supabase.rpc("today_ist");
@@ -39,10 +52,11 @@ export default async function LoansPage(props: PageProps<"/loans">) {
     .from("v_loans_with_fine")
     .select(
       "id, book_title, accession_number, member_name, member_roll_number, due_date, is_overdue, days_overdue, fine_outstanding, renewal_count",
+      { count: "exact" },
     )
     .is("returned_at", null)
     .order("due_date")
-    .limit(200);
+    .range(from, from + PAGE_SIZE - 1);
 
   if (active === "overdue") request = request.eq("is_overdue", true);
   if (active === "due-today" && today) request = request.eq("due_date", today);
@@ -53,10 +67,12 @@ export default async function LoansPage(props: PageProps<"/loans">) {
     );
   }
 
-  const { data: loans } = await request;
+  const { data: loans, count } = await request;
+  const total = count ?? 0;
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap gap-2">
           {TABS.map((tab) => (
@@ -81,17 +97,39 @@ export default async function LoansPage(props: PageProps<"/loans">) {
       </div>
 
       {!loans?.length ? (
-        <Empty>
-          <EmptyTitle>{query ? "No matches" : "Nothing here"}</EmptyTitle>
-          <EmptyDescription>
-            {query
-              ? `No loan matches “${query}”.`
-              : active === "overdue"
-                ? "No book is overdue."
-                : active === "due-today"
-                  ? "Nothing is due today."
-                  : "No books are currently on loan."}
-          </EmptyDescription>
+        <Empty className="flex-1">
+          <EmptyHeader>
+            <EmptyMedia variant="icon" className="size-12">
+              {query ? (
+                <SearchXIcon className="text-muted-foreground size-6" />
+              ) : (
+                <BookOpenIcon className="text-muted-foreground size-6" />
+              )}
+            </EmptyMedia>
+            <EmptyTitle>{query ? "No matches" : "Nothing here"}</EmptyTitle>
+            <EmptyDescription>
+              {query
+                ? `No loan matches “${query}”.`
+                : active === "overdue"
+                  ? "No book is overdue."
+                  : active === "due-today"
+                    ? "Nothing is due today."
+                    : "No books are currently on loan."}
+            </EmptyDescription>
+          </EmptyHeader>
+          {!query ? (
+            <EmptyContent>
+              <Button
+                nativeButton={false}
+                render={
+                  <Link href="/counter">
+                    <ScanBarcodeIcon />
+                    Issue a book
+                  </Link>
+                }
+              />
+            </EmptyContent>
+          ) : null}
         </Empty>
       ) : (
         <Card className="overflow-hidden py-0">
@@ -140,6 +178,15 @@ export default async function LoansPage(props: PageProps<"/loans">) {
           </Table>
         </Card>
       )}
+
+      <ListPagination
+        page={pageNo}
+        lastPage={lastPage}
+        total={total}
+        basePath="/loans"
+        params={{ q: query, filter: active === "all" ? undefined : active }}
+        label="on loan"
+      />
     </div>
   );
 }

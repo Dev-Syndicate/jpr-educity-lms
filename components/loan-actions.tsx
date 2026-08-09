@@ -50,11 +50,9 @@ export function LoanActions({
         </form>
       </div>
 
-      {latest.message ? (
-        <div className="w-full max-w-md">
-          <FormFeedback state={latest} />
-        </div>
-      ) : null}
+      {/* Toast only: an inline alert inside a table row shoves the whole
+          table around on every renew. */}
+      <FormFeedback state={latest} toastOnly />
     </div>
   );
 }

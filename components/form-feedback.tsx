@@ -3,11 +3,29 @@
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { useActionToast } from "@/components/use-action-toast";
 import type { ActionState } from "@/lib/types";
 
-/** Top-of-form message for a settled action. */
-export function FormFeedback({ state }: { state: ActionState<unknown> }) {
-  if (!state.message) return null;
+/**
+ * Announce a settled action.
+ *
+ * Every form already renders this, so raising the toast from here means one
+ * place decides how results are announced rather than a dozen call sites.
+ *
+ * `toastOnly` drops the inline alert for actions whose result is already
+ * obvious in the page — a row disappearing, a count changing — where an
+ * inline banner would just push the layout around.
+ */
+export function FormFeedback({
+  state,
+  toastOnly = false,
+}: {
+  state: ActionState<unknown>;
+  toastOnly?: boolean;
+}) {
+  useActionToast(state);
+
+  if (!state.message || toastOnly) return null;
 
   return (
     <Alert

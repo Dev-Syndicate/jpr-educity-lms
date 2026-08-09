@@ -36,11 +36,8 @@ export function LibrarianStatusToggle({
         </Button>
       </form>
 
-      {state.message ? (
-        <div className="w-full max-w-sm">
-          <FormFeedback state={state} />
-        </div>
-      ) : null}
+      {/* Toast only: these sit inside table rows. */}
+      <FormFeedback state={state} toastOnly />
     </div>
   );
 }
