@@ -49,7 +49,10 @@ export function RegisterForm() {
   return (
     <form action={action} className="flex flex-col gap-6">
       <FieldGroup>
-        <FormFeedback state={state} />
+        {/* Inline only: this form is still being filled in, so the message
+            belongs above the fields rather than in a toast that floats away
+            while the applicant is reading it. */}
+        <FormFeedback state={state} inlineOnly />
 
         <Field data-invalid={state.fieldErrors?.fullName ? true : undefined}>
           <FieldLabel htmlFor="fullName">Full name</FieldLabel>

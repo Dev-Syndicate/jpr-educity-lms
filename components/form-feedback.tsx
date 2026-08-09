@@ -4,7 +4,10 @@ import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useActionToast } from "@/components/use-action-toast";
-import type { ActionState } from "@/lib/types";
+import { idleState, type ActionState } from "@/lib/types";
+
+/** Stable reference, so suppressing the toast never re-fires the effect. */
+const IDLE = idleState;
 
 /**
  * Announce a settled action.
@@ -19,11 +22,18 @@ import type { ActionState } from "@/lib/types";
 export function FormFeedback({
   state,
   toastOnly = false,
+  inlineOnly = false,
 }: {
   state: ActionState<unknown>;
   toastOnly?: boolean;
+  /**
+   * Suppress the toast. For a form the user is still filling in, where the
+   * message belongs beside the fields being corrected rather than floating
+   * in a corner and timing out.
+   */
+  inlineOnly?: boolean;
 }) {
-  useActionToast(state);
+  useActionToast(inlineOnly ? IDLE : state);
 
   if (!state.message || toastOnly) return null;
 

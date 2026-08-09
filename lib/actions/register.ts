@@ -76,7 +76,30 @@ export async function registerMember(
   });
 
   if (signUpError) {
-    return failure(signUpError.message, { email: [signUpError.message] });
+    const raw = signUpError.message ?? "";
+
+    // Sign-ups are switched off at the Supabase auth provider, which the
+    // in-app toggle cannot override. Nothing the applicant types will help,
+    // so do not blame a field — say where to go instead.
+    if (/signups? not allowed|signup is disabled/i.test(raw)) {
+      return failure(
+        "Registration is not available online. Please visit the library counter to open an account.",
+      );
+    }
+
+    // An address already in use is genuinely about the email field.
+    if (/already registered|already exists|user already/i.test(raw)) {
+      return failure("That email address is already registered.", {
+        email: ["Already registered. Try signing in instead."],
+      });
+    }
+
+    if (/password/i.test(raw)) {
+      return failure(raw, { password: [raw] });
+    }
+
+    console.error("[register]", signUpError.code, raw);
+    return failure("Could not complete registration. Please try again.");
   }
 
   if (!signUp.user) {
