@@ -34,7 +34,13 @@ export type ActionState<T = undefined> = {
   nonce?: number;
 };
 
-export const idleState: ActionState = { ok: false };
+/**
+ * Starting state for useActionState.
+ *
+ * Typed as ActionState<never> so it is assignable to ActionState<T> for any T
+ * — `data` is absent, so no result type is being claimed.
+ */
+export const idleState: ActionState<never> = { ok: false };
 
 export function failure<T = undefined>(
   message: string,

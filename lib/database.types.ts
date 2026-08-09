@@ -674,6 +674,7 @@ export type Database = {
         }[]
       }
       assert_librarian: { Args: never; Returns: string }
+      assess_overdue_fine: { Args: { p_loan_id: string }; Returns: string }
       calculate_fine: {
         Args: {
           p_due_date: string

@@ -159,6 +159,12 @@ export async function renewLoan(
     loanId = loan.id;
   }
 
+  // Assess any overdue fine FIRST, in its own transaction. renew_loan raises
+  // to refuse an overdue renewal, and a raise rolls back everything in that
+  // call — so a fine written inside it would vanish, leaving the librarian
+  // told to collect money that no longer exists as a row.
+  await supabase.rpc("assess_overdue_fine", { p_loan_id: loanId! });
+
   const { data, error } = await supabase
     .rpc("renew_loan", { p_loan_id: loanId! })
     .single();
