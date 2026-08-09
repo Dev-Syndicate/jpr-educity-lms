@@ -322,6 +322,92 @@
   Renewal sets the due date to <em>today + 15 days</em>. If an overdue book could be renewed freely, the new due date would sit in the future and the days already owed would silently disappear. Requiring payment first keeps the arithmetic honest without needing a carry-forward mechanism.
 </div>
 
+<!-- ============ ACCOUNT LIFECYCLE ============ -->
+<h2>How an account becomes able to borrow</h2>
+<p class="lede">Two routes in, one gate. A librarian's judgement is the only thing that turns an account into one that can walk out with a book.</p>
+
+<figure>
+  <div class="figframe">
+    <svg viewBox="0 0 1040 330" role="img" aria-label="Account lifecycle: a librarian adding a member directly produces an active account immediately. Public registration, when the toggle is on, produces a pending account that can log in but cannot borrow; a librarian then approves it into active, or rejects it into a retained rejected state. When the toggle is off, registration is refused at the database.">
+      <defs>
+        <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- Path A: librarian -->
+      <rect x="20" y="30" width="176" height="54" rx="7" fill="none" stroke="#7a1f2b" stroke-width="2"/>
+      <text x="108" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#7a1f2b">librarian adds</text>
+      <text x="108" y="70" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">at the counter</text>
+
+      <!-- Path B: applicant -->
+      <rect x="20" y="176" width="176" height="54" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <text x="108" y="198" text-anchor="middle" font-size="12.5" font-weight="700" fill="currentColor">person registers</text>
+      <text x="108" y="216" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">on the public page</text>
+
+      <!-- toggle gate -->
+      <rect x="270" y="168" width="146" height="70" rx="7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="5 4"/>
+      <text x="343" y="192" text-anchor="middle" font-size="11.5" font-weight="700" fill="currentColor">registration</text>
+      <text x="343" y="208" text-anchor="middle" font-size="11.5" font-weight="700" fill="currentColor">toggle</text>
+      <text x="343" y="226" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".65">checked in the database</text>
+
+      <!-- pending -->
+      <rect x="492" y="168" width="168" height="70" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <text x="576" y="192" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">pending</text>
+      <text x="576" y="210" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">can log in</text>
+      <text x="576" y="226" text-anchor="middle" font-size="10" font-weight="600" fill="#a8321f">cannot borrow</text>
+
+      <!-- active -->
+      <rect x="812" y="52" width="200" height="70" rx="7" fill="none" stroke="#2c6e49" stroke-width="2.4"/>
+      <text x="912" y="78" text-anchor="middle" font-size="14" font-weight="700" fill="#2c6e49">active</text>
+      <text x="912" y="97" text-anchor="middle" font-size="10.5" fill="#2c6e49" opacity=".9">may borrow books</text>
+      <text x="912" y="113" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".65">appears in counter search</text>
+
+      <!-- rejected -->
+      <rect x="812" y="252" width="200" height="62" rx="7" fill="none" stroke="#a8321f" stroke-width="1.8"/>
+      <text x="912" y="276" text-anchor="middle" font-size="13" font-weight="700" fill="#a8321f">rejected</text>
+      <text x="912" y="294" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">kept on record · email stays claimed</text>
+
+      <!-- librarian direct -> active -->
+      <path d="M 200 52 C 480 52 560 82 806 82" fill="none" stroke="#7a1f2b" stroke-width="2" marker-end="url(#ar4)"/>
+      <text x="500" y="44" text-anchor="middle" font-size="10.5" font-weight="600" fill="#7a1f2b">active immediately — no approval step</text>
+
+      <!-- applicant -> toggle -->
+      <line x1="200" y1="203" x2="266" y2="203" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar4)"/>
+
+      <!-- toggle ON -> pending -->
+      <line x1="420" y1="203" x2="488" y2="203" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar4)"/>
+      <text x="454" y="195" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">on</text>
+
+      <!-- toggle OFF -> refused -->
+      <path d="M 343 242 L 343 292" fill="none" stroke="#a8321f" stroke-width="1.6"/>
+      <text x="353" y="282" font-size="10" font-weight="600" fill="#a8321f">off → refused</text>
+      <text x="353" y="296" font-size="9.5" fill="#a8321f" opacity=".8">at the database, not just hidden</text>
+
+      <!-- pending -> active -->
+      <path d="M 664 190 C 740 190 750 96 806 90" fill="none" stroke="#2c6e49" stroke-width="2" marker-end="url(#ar4)"/>
+      <text x="726" y="140" text-anchor="middle" font-size="10.5" font-weight="600" fill="#2c6e49">approve</text>
+      <text x="726" y="154" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".7">librarian verifies</text>
+      <text x="726" y="167" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".7">roll no. + member type</text>
+
+      <!-- pending -> rejected -->
+      <path d="M 664 220 C 740 232 760 276 806 280" fill="none" stroke="#a8321f" stroke-width="1.6" marker-end="url(#ar4)"/>
+      <text x="730" y="252" text-anchor="middle" font-size="10.5" font-weight="600" fill="#a8321f">reject</text>
+
+      <!-- reversible -->
+      <path d="M 900 248 C 880 200 880 160 900 126" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#ar4)" opacity=".6"/>
+      <text x="836" y="190" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".65">reversible</text>
+      <text x="836" y="203" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".65">if mistaken</text>
+    </svg>
+  </div>
+  <figcaption>Public registration can only ever produce a <strong>pending member</strong>. The role and status are hard-coded inside the registration function rather than accepted from the form, so submitting <code>role=librarian</code> yields an ordinary pending applicant.</figcaption>
+</figure>
+
+<div class="call warn">
+  <strong>The declared member type is a claim, not a fact</strong>
+  An applicant chooses “student” or “faculty” on the form, and that choice decides whether they may hold 3 books or 5. It takes effect only on approval — the librarian must confirm it alongside the roll number, and can correct it before approving.
+</div>
+
 <!-- ============ TABLES ============ -->
 <h2>Tables and columns</h2>
 <p class="lede">Abbreviated to the columns that carry meaning. Every table also has <code>created_at</code> and <code>updated_at</code>, maintained by trigger.</p>
@@ -341,6 +427,10 @@
       <tr><td class="col">department</td><td class="typ">text</td><td class="desc"></td></tr>
       <tr><td class="col">phone</td><td class="typ">text</td><td class="desc"></td></tr>
       <tr><td class="col">is_active</td><td class="typ">bool</td><td class="desc">false blocks borrowing; never delete</td></tr>
+      <tr><td class="col">account_status</td><td class="typ">enum</td><td class="desc"><strong>pending · active · rejected</strong> — only active may borrow</td></tr>
+      <tr><td class="col">approved_by</td><td class="typ">uuid</td><td class="desc">which librarian approved</td></tr>
+      <tr><td class="col">rejected_by</td><td class="typ">uuid</td><td class="desc">and who rejected</td></tr>
+      <tr><td class="col">rejection_reason</td><td class="typ">text</td><td class="desc">kept on record, not deleted</td></tr>
     </table>
   </article>
 
@@ -423,6 +513,7 @@
       <tr><td class="col">max_renewals</td><td class="typ">integer</td><td class="desc">default 2</td></tr>
       <tr><td class="col">max_books_student</td><td class="typ">integer</td><td class="desc">default 3</td></tr>
       <tr><td class="col">max_books_staff</td><td class="typ">integer</td><td class="desc">default 5</td></tr>
+      <tr><td class="col">public_registration</td><td class="typ">bool</td><td class="desc">default off · gates the signup page</td></tr>
       <tr><td class="col">library_name</td><td class="typ">text</td><td class="desc">Jeppiaar Educity Library</td></tr>
       <tr><td class="col">updated_by<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">who last changed the rules</td></tr>
     </table>
