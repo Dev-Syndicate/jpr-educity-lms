@@ -28,7 +28,6 @@ export default async function HistoryPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">History</h1>
         <p className="text-muted-foreground text-sm">Books you have returned.</p>
       </div>
 

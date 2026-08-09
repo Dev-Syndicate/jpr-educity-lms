@@ -39,7 +39,6 @@ export default async function CataloguePage(props: PageProps<"/my/catalogue">) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Catalogue</h1>
         <p className="text-muted-foreground text-sm">
           Borrow at the library counter.
         </p>
