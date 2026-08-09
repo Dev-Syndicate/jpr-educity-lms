@@ -245,3 +245,95 @@ export async function markCopyLost(
   refresh();
   return success(undefined, `${accession} marked lost. Any open loan was closed.`);
 }
+
+export type CopyHit = {
+  accessionNumber: string;
+  shelfLocation: string | null;
+};
+
+export type BookHit = {
+  id: string;
+  title: string;
+  author: string;
+  totalCopies: number;
+  availableCopies: number;
+  /** Only the copies that can be issued right now, capped for display. */
+  available: CopyHit[];
+  /** Earliest due date among the copies out, when none are on the shelf. */
+  nextDue: string | null;
+};
+
+/**
+ * Counter book lookup: "do we have this, and which copy do I fetch?"
+ *
+ * Returns the accession numbers of AVAILABLE copies so the librarian can read
+ * one off, pull it from the shelf and scan it. When nothing is on the shelf it
+ * returns the earliest due date instead, which is the next question asked.
+ */
+export async function searchBooks(query: string): Promise<BookHit[]> {
+  await requireLibrarian();
+
+  const q = query.trim();
+  if (q.length < 2) return [];
+
+  const supabase = await createClient();
+
+  const { data: books } = await supabase
+    .from("v_books_catalogue")
+    .select("id, title, author, total_copies, available_copies")
+    .or(`title.ilike.%${q}%,author.ilike.%${q}%,isbn.ilike.%${q}%`)
+    .order("title")
+    .limit(6);
+
+  if (!books?.length) return [];
+
+  const ids = books.map((b) => b.id).filter((id): id is string => Boolean(id));
+
+  // Copies and due dates for all hits in two queries rather than 2N.
+  const [{ data: copies }, { data: loans }] = await Promise.all([
+    supabase
+      .from("book_copies")
+      .select("book_id, accession_number, shelf_location")
+      .in("book_id", ids)
+      .eq("status", "available")
+      .order("accession_number"),
+    supabase
+      .from("v_loans_with_fine")
+      .select("book_id, due_date")
+      .in("book_id", ids)
+      .is("returned_at", null)
+      .order("due_date"),
+  ]);
+
+  const byBook = new Map<string, CopyHit[]>();
+  for (const c of copies ?? []) {
+    if (!c.book_id) continue;
+    const list = byBook.get(c.book_id) ?? [];
+    // Three is enough to read one out; more is noise at the counter.
+    if (list.length < 3) {
+      list.push({
+        accessionNumber: c.accession_number,
+        shelfLocation: c.shelf_location,
+      });
+    }
+    byBook.set(c.book_id, list);
+  }
+
+  // Ordered by due_date, so the first hit per book is the earliest.
+  const dueByBook = new Map<string, string>();
+  for (const l of loans ?? []) {
+    if (l.book_id && l.due_date && !dueByBook.has(l.book_id)) {
+      dueByBook.set(l.book_id, l.due_date);
+    }
+  }
+
+  return books.map((b) => ({
+    id: b.id!,
+    title: b.title!,
+    author: b.author!,
+    totalCopies: Number(b.total_copies ?? 0),
+    availableCopies: Number(b.available_copies ?? 0),
+    available: byBook.get(b.id!) ?? [],
+    nextDue: dueByBook.get(b.id!) ?? null,
+  }));
+}

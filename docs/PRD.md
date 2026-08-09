@@ -229,6 +229,7 @@ This is the most-used screen in the system and the one the product is judged on.
 | C-9 | Success **never** opens a modal dialog, which would cost a keystroke per book. |
 | C-10 | The last 10 operations are listed, with an undo action on the most recent. |
 | C-11 | Rule violations show the specific reason ("Arun already has 3 books issued"), never a generic error. |
+| C-12 | The counter can answer **"do we have this book?"** without leaving the screen. Searching by title, author or ISBN shows how many copies are on the shelf and the **accession numbers** of the available ones, so the librarian can fetch a copy and scan it. When every copy is out, the **earliest due date** is shown instead. This lookup is read-only — the physical copy still has to be scanned to issue it. |
 | C-12 | Counter member search finds **pending** members as well as active ones, clearly marked as pending. |
 | C-13 | Selecting a pending member shows everything they declared at registration — name, roll number, department, email — with the **declared member type highlighted**, since it sets the borrowing limit. A prompt reminds the librarian to check the college ID card. |
 | C-14 | **Approve and issue in one action.** The librarian confirms the person, and the scanned book is issued in the same step. |

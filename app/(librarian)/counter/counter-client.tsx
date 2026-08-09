@@ -32,6 +32,7 @@ import {
   returnBook,
   type IssueResult,
 } from "@/lib/actions/circulation";
+import { searchBooks, type BookHit } from "@/lib/actions/books";
 import { searchMembers, type MemberHit } from "@/lib/actions/members";
 import { idleState, type ActionState } from "@/lib/types";
 
@@ -241,6 +242,7 @@ export function CounterClient() {
 
       <div className="flex flex-col gap-4">
         <MemberSearch selected={member} onSelect={selectMember} />
+        <BookSearch />
         <RecentList items={recent} />
       </div>
     </div>
@@ -289,6 +291,121 @@ function ModeSelector({
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
+  );
+}
+
+/**
+ * "Do we have this book, and which copy do I fetch?"
+ *
+ * The counter otherwise assumes the book is already in hand — every mode
+ * starts from a barcode. This answers the question that comes first when a
+ * student asks for a title by name, without leaving the screen.
+ *
+ * It is deliberately read-only: the librarian still has to fetch the physical
+ * copy and scan it, so there is nothing here to click by mistake.
+ */
+function BookSearch() {
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<BookHit[]>([]);
+  const [searched, setSearched] = useState(false);
+  const [searching, startSearch] = useTransition();
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onQueryChange(value: string) {
+    setQuery(value);
+
+    if (debounce.current) clearTimeout(debounce.current);
+
+    const q = value.trim();
+    if (q.length < 2) {
+      setHits([]);
+      setSearched(false);
+      return;
+    }
+
+    debounce.current = setTimeout(() => {
+      startSearch(async () => {
+        setHits(await searchBooks(q));
+        setSearched(true);
+      });
+    }, 220);
+  }
+
+  useEffect(() => () => {
+    if (debounce.current) clearTimeout(debounce.current);
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Find a book</CardTitle>
+        <CardDescription>
+          Search the shelf by title, author or ISBN.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="relative">
+          <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+          <Input
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Title, author or ISBN"
+            className="pl-9"
+            aria-label="Search books"
+          />
+          {searching ? (
+            <Spinner className="text-muted-foreground absolute top-1/2 right-3 size-4 -translate-y-1/2" />
+          ) : null}
+        </div>
+
+        {searched && !hits.length && !searching ? (
+          <p className="text-muted-foreground text-sm">
+            Nothing matches “{query.trim()}”.
+          </p>
+        ) : null}
+
+        {hits.map((book) => (
+          <div key={book.id} className="flex flex-col gap-1.5 rounded-lg border p-3">
+            <div>
+              <div className="text-sm font-medium">{book.title}</div>
+              <div className="text-muted-foreground text-xs">{book.author}</div>
+            </div>
+
+            {book.availableCopies > 0 ? (
+              <>
+                <Badge className="bg-available-subtle text-available w-fit">
+                  {book.availableCopies} of {book.totalCopies} on the shelf
+                </Badge>
+                <ul className="flex flex-col gap-0.5">
+                  {book.available.map((copy) => (
+                    <li
+                      key={copy.accessionNumber}
+                      className="flex items-baseline justify-between gap-2 text-xs"
+                    >
+                      <span className="font-mono">{copy.accessionNumber}</span>
+                      <span className="text-muted-foreground">
+                        {copy.shelfLocation ?? "—"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <>
+                <Badge className="bg-issued-subtle text-issued w-fit">
+                  All {book.totalCopies} out
+                </Badge>
+                {book.nextDue ? (
+                  <p className="text-muted-foreground text-xs">
+                    Next due {book.nextDue}.
+                  </p>
+                ) : null}
+              </>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
