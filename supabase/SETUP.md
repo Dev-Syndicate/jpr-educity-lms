@@ -69,6 +69,37 @@ pnpm dlx supabase gen types typescript --linked > lib/database.types.ts
 `supabase login` stores an access token on this machine — anything with shell
 access can then reach the project. `supabase logout` clears it.
 
+### Known CLI bug: `link` fails on "failed to get api keys"
+
+CLI 2.112.0 ends `link` with:
+
+```
+failed to get api keys: SchemaError(Expected a string matching the RegExp ... at [2]["inserted_at"])
+```
+
+A CLI bug parsing a timestamp in the API-keys response — nothing wrong with the
+project. But the link does **not** complete: the CLI crashes before writing
+`supabase/.temp/project-ref`, so `db push` then reports
+`Cannot find project ref`.
+
+Three ways past it, cheapest first:
+
+```bash
+# 1. Write the ref file yourself — it is just the bare ref, no newline needed.
+printf 'tajygumpwncgvuukjpio' > supabase/.temp/project-ref
+pnpm dlx supabase db push
+
+# 2. Or pass the ref explicitly each time.
+pnpm dlx supabase db push --project-ref tajygumpwncgvuukjpio
+
+# 3. Or bypass project lookup entirely with a direct connection string
+#    (Project Settings -> Database -> Connection string -> URI).
+pnpm dlx supabase db push --db-url "postgresql://postgres.<ref>:<password>@<host>:6543/postgres"
+```
+
+For the API keys, use the dashboard (**Project Settings → API**) rather than
+`supabase projects api-keys`, which hits the same broken endpoint.
+
 ### Or by hand
 
 Paste each file into the SQL Editor **in filename order**. Order matters:

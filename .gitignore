@@ -43,3 +43,7 @@ next-env.d.ts
 
 # Claude Code local symlinks (skills live in .agents/, which IS committed)
 .claude/skills/
+
+# Supabase CLI local state (project ref, db password cache)
+supabase/.temp/
+supabase/.branches/
