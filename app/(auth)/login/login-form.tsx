@@ -6,6 +6,7 @@ import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -19,7 +20,7 @@ export function LoginForm({ next }: { next?: string }) {
   const [state, action, pending] = useActionState(signIn, idleState);
 
   return (
-    <form action={action}>
+    <form action={action} className="flex flex-col gap-6">
       <FieldGroup>
         {state.message ? (
           <Alert variant="destructive" role="alert">
@@ -41,7 +42,9 @@ export function LoginForm({ next }: { next?: string }) {
             autoFocus
             aria-invalid={state.fieldErrors?.email ? true : undefined}
           />
-          <FieldError errors={state.fieldErrors?.email?.map((m) => ({ message: m }))} />
+          <FieldError
+            errors={state.fieldErrors?.email?.map((m) => ({ message: m }))}
+          />
         </Field>
 
         <Field data-invalid={state.fieldErrors?.password ? true : undefined}>
@@ -54,13 +57,20 @@ export function LoginForm({ next }: { next?: string }) {
             required
             aria-invalid={state.fieldErrors?.password ? true : undefined}
           />
-          <FieldError errors={state.fieldErrors?.password?.map((m) => ({ message: m }))} />
+          <FieldError
+            errors={state.fieldErrors?.password?.map((m) => ({ message: m }))}
+          />
+          <FieldDescription>
+            Forgotten it? Ask at the library counter.
+          </FieldDescription>
         </Field>
 
-        <Button type="submit" size="lg" disabled={pending} className="w-full">
-          {pending ? <Spinner /> : null}
-          Sign in
-        </Button>
+        <Field>
+          <Button type="submit" size="lg" disabled={pending}>
+            {pending ? <Spinner /> : null}
+            Sign in
+          </Button>
+        </Field>
       </FieldGroup>
     </form>
   );

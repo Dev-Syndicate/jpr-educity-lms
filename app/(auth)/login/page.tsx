@@ -1,12 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { getCurrentUser, homePathFor } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,8 +15,8 @@ export default async function LoginPage(props: PageProps<"/login">) {
   const { next } = await props.searchParams;
   const nextPath = typeof next === "string" ? next : undefined;
 
-  // Only show the registration link when registration is actually open —
-  // the real gate is inside register_member(), this just avoids a dead end.
+  // Only show the registration link when registration is actually open. The
+  // real gate is inside register_member(); this just avoids a dead end.
   const supabase = await createClient();
   const { data: settings } = await supabase
     .from("settings")
@@ -31,25 +25,31 @@ export default async function LoginPage(props: PageProps<"/login">) {
     .single();
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Sign in</CardTitle>
-        <CardDescription>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1 text-center lg:text-left">
+        <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+        <p className="text-muted-foreground text-sm text-balance">
           Use the email address registered with the library.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <LoginForm next={nextPath} />
+        </p>
+      </div>
 
-        {settings?.public_registration ? (
-          <p className="text-muted-foreground text-center text-sm">
-            New here?{" "}
-            <a href="/register" className="text-primary underline underline-offset-4">
-              Register
-            </a>
-          </p>
-        ) : null}
-      </CardContent>
-    </Card>
+      <LoginForm next={nextPath} />
+
+      {settings?.public_registration ? (
+        <p className="text-muted-foreground text-center text-sm">
+          New here?{" "}
+          <Link
+            href="/register"
+            className="text-primary underline underline-offset-4"
+          >
+            Register
+          </Link>
+        </p>
+      ) : (
+        <p className="text-muted-foreground text-center text-sm text-balance">
+          Accounts are created at the library counter.
+        </p>
+      )}
+    </div>
   );
 }
