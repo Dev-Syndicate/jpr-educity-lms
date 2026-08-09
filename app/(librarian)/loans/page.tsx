@@ -71,6 +71,26 @@ export default async function LoansPage(props: PageProps<"/loans">) {
   const total = count ?? 0;
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Scoped to the search, so a count never promises rows the search excludes.
+  const countFor = async (key: string) => {
+    let counter = supabase
+      .from("v_loans_with_fine")
+      .select("id", { count: "exact", head: true })
+      .is("returned_at", null);
+    if (key === "overdue") counter = counter.eq("is_overdue", true);
+    if (key === "due-today" && today) counter = counter.eq("due_date", today);
+    if (query) {
+      counter = counter.or(
+        `book_title.ilike.%${query}%,accession_number.ilike.%${query}%,member_name.ilike.%${query}%,member_roll_number.ilike.%${query}%`,
+      );
+    }
+    return (await counter).count ?? 0;
+  };
+
+  const counts = Object.fromEntries(
+    await Promise.all(TABS.map(async (t) => [t.key, await countFor(t.key)])),
+  ) as Record<string, number>;
+
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -88,6 +108,9 @@ export default async function LoansPage(props: PageProps<"/loans">) {
                   href={`/loans?${new URLSearchParams({ filter: tab.key, ...(query && { q: query }) })}`}
                 >
                   {tab.label}
+                  <span className="tabular-nums opacity-60">
+                    {counts[tab.key]}
+                  </span>
                 </Link>
               }
             />

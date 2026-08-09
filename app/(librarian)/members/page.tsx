@@ -75,11 +75,37 @@ export default async function MembersPage(props: PageProps<"/members">) {
 
   const byId = new Map(dues?.map((d) => [d.member_id, d]) ?? []);
 
+  // Counts are scoped to the search too. A tab reading "Pending 4" that lands
+  // on an empty list because the search excludes all four would be a lie.
+  const countFor = async (status: "active" | "pending" | "rejected") => {
+    let counter = supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "member")
+      .eq("account_status", status);
+    if (query) {
+      counter = counter.or(
+        `full_name.ilike.%${query}%,roll_number.ilike.%${query}%`,
+      );
+    }
+    return (await counter).count ?? 0;
+  };
+
+  const [activeCount, pendingCount, rejectedCount] = await Promise.all([
+    countFor("active"),
+    countFor("pending"),
+    countFor("rejected"),
+  ]);
+
   const TABS = [
-    { key: "active", label: "Active" },
-    { key: "pending", label: "Pending" },
-    { key: "rejected", label: "Rejected" },
-    { key: "all", label: "All" },
+    { key: "active", label: "Active", count: activeCount },
+    { key: "pending", label: "Pending", count: pendingCount },
+    { key: "rejected", label: "Rejected", count: rejectedCount },
+    {
+      key: "all",
+      label: "All",
+      count: activeCount + pendingCount + rejectedCount,
+    },
   ];
 
   return (
@@ -110,6 +136,9 @@ export default async function MembersPage(props: PageProps<"/members">) {
                 href={`/members?${new URLSearchParams({ ...(query && { q: query }), status: tab.key })}`}
               >
                 {tab.label}
+                {/* Inherits the button's own foreground rather than nesting a
+                    Badge, whose colours would fight the selected state. */}
+                <span className="tabular-nums opacity-60">{tab.count}</span>
               </Link>
             }
           />
