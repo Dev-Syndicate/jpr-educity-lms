@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchIcon, UserRoundIcon, XIcon } from "lucide-react";
+import { CheckIcon, SearchIcon, UserRoundIcon, XIcon } from "lucide-react";
 import {
   startTransition,
   useActionState,
@@ -35,6 +35,7 @@ import {
 import { searchBooks, type BookHit } from "@/lib/actions/books";
 import { searchMembers, type MemberHit } from "@/lib/actions/members";
 import { idleState, type ActionState } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type Recent = {
   id: number;
@@ -44,17 +45,63 @@ type Recent = {
 
 type Mode = "issue" | "return" | "renew";
 
-const MODES: { value: Mode; label: string; hint: string }[] = [
+/**
+ * The three operations are NOT peers, and the layout says so.
+ *
+ * Issue needs a member and then a book — two steps, in order. Return and
+ * Renew need only the book in hand. Rendering all three identically was the
+ * confusion: nothing on screen said which one you were in or what came next.
+ *
+ * Each mode owns a domain colour already defined in globals.css, so the
+ * colour carries meaning rather than decoration:
+ *   issue  -> issued  (blue, a copy going out)
+ *   return -> available (teal, a copy coming back to the shelf)
+ *   renew  -> pending (orange, a loan being extended)
+ */
+const MODES: {
+  value: Mode;
+  label: string;
+  /** What the librarian does, in their words. */
+  caption: string;
+  /** Issue is the only two-step operation. */
+  needsMember: boolean;
+  tint: { chip: string; ring: string; text: string; bar: string };
+}[] = [
   {
     value: "issue",
     label: "Issue",
-    hint: "Scan each book to issue it. Press Esc when this member is done.",
+    caption: "Give a book to a member",
+    needsMember: true,
+    tint: {
+      chip: "bg-issued-subtle text-issued",
+      ring: "border-issued",
+      text: "text-issued",
+      bar: "bg-issued",
+    },
   },
-  { value: "return", label: "Return", hint: "Scan any book to return it." },
+  {
+    value: "return",
+    label: "Return",
+    caption: "Take a book back",
+    needsMember: false,
+    tint: {
+      chip: "bg-available-subtle text-available",
+      ring: "border-available",
+      text: "text-available",
+      bar: "bg-available",
+    },
+  },
   {
     value: "renew",
     label: "Renew",
-    hint: "Scan a book to extend its due date. No member needed.",
+    caption: "Extend a due date",
+    needsMember: false,
+    tint: {
+      chip: "bg-pending-subtle text-pending",
+      ring: "border-pending",
+      text: "text-pending",
+      bar: "bg-pending",
+    },
   },
 ];
 
@@ -89,6 +136,7 @@ export function CounterClient() {
   // back rather than leaving the counter in a mode it cannot act on.
   const effectivePin = pinnedMode === "issue" && !member ? null : pinnedMode;
   const mode: Mode = effectivePin ?? (member ? "issue" : "return");
+  const active = MODES.find((m) => m.value === mode)!;
 
   const [issueState, issueAction, issuePending] = useActionState(issueBook, idleState);
   const [returnState, returnAction, returnPending] = useActionState(returnBook, idleState);
@@ -192,45 +240,49 @@ export function CounterClient() {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            {/* mode === "issue" implies a member is loaded — see
-                effectivePin above. */}
-            <CardTitle>
-              {mode === "issue"
-                ? `Issue to ${member!.fullName}`
-                : mode === "renew"
-                  ? "Renew a book"
-                  : "Return a book"}
-            </CardTitle>
-            <CardDescription>
-              {MODES.find((m) => m.value === mode)!.hint}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <ModeSelector
-              mode={mode}
-              memberLoaded={Boolean(member)}
-              onChange={setPinnedMode}
-            />
+        <ModeSelector
+          mode={mode}
+          memberLoaded={Boolean(member)}
+          onChange={setPinnedMode}
+        />
 
-            <ScanInput
-              pending={pending}
-              nonce={latest.nonce}
-              onScan={handleScan}
-              placeholder={
-                mode === "issue"
-                  ? "Scan to issue…"
-                  : mode === "renew"
-                    ? "Scan to renew…"
-                    : "Scan to return…"
-              }
-            />
+        <Card className="overflow-hidden pt-0">
+          {/* The active mode's colour runs across the top of the card, so the
+              operation is identifiable before reading a word. */}
+          <div className={cn("h-1 w-full", active.tint.bar)} />
+
+          <CardContent className="flex flex-col gap-5 pt-5">
+            {mode === "issue" ? (
+              <IssueSteps
+                member={member}
+                pending={pending}
+                nonce={latest.nonce}
+                onScan={handleScan}
+                onClearMember={() => selectMember(null)}
+              />
+            ) : (
+              <ScanTarget
+                title={mode === "return" ? "Take a book back" : "Extend a due date"}
+                hint={
+                  mode === "return"
+                    ? "Scan the book. Any fine is worked out automatically."
+                    : "Scan the book. The new due date runs 15 days from today."
+                }
+                tint={active.tint}
+                pending={pending}
+                nonce={latest.nonce}
+                onScan={handleScan}
+                placeholder={mode === "return" ? "Scan to return…" : "Scan to renew…"}
+              />
+            )}
+
             <ScanFeedback state={latest} />
           </CardContent>
         </Card>
 
-        {member ? (
+        {/* Only in issue mode: in return/renew the book in hand is the
+            subject, not a member. */}
+        {member && mode === "issue" ? (
           <MemberPanel
             member={member}
             onClear={() => selectMember(null)}
@@ -276,21 +328,188 @@ function ModeSelector({
         const next = value[0] as Mode | undefined;
         if (next) onChange(next);
       }}
-      variant="outline"
-      spacing={0}
+      spacing={2}
       aria-label="What the next scan does"
+      className="grid w-full grid-cols-3"
     >
-      {MODES.map((m) => (
-        <ToggleGroupItem
-          key={m.value}
-          value={m.value}
-          // Issuing needs someone to issue to.
-          disabled={m.value === "issue" && !memberLoaded}
-        >
-          {m.label}
-        </ToggleGroupItem>
-      ))}
+      {MODES.map((m) => {
+        const isActive = m.value === mode;
+        const locked = m.needsMember && !memberLoaded;
+
+        return (
+          <ToggleGroupItem
+            key={m.value}
+            value={m.value}
+            disabled={locked}
+            className={cn(
+              "h-auto flex-col items-start gap-0.5 rounded-lg border px-4 py-3 text-left",
+              isActive
+                ? cn(m.tint.ring, m.tint.chip, "border-2")
+                : "border-border bg-card",
+            )}
+          >
+            <span
+              className={cn(
+                "text-base font-semibold",
+                isActive ? m.tint.text : undefined,
+              )}
+            >
+              {m.label}
+            </span>
+            <span className="text-xs font-normal opacity-80">
+              {locked ? "Load a member first" : m.caption}
+            </span>
+          </ToggleGroupItem>
+        );
+      })}
     </ToggleGroup>
+  );
+}
+
+/**
+ * Return and Renew: one book, one scan, nothing else to know.
+ *
+ * Deliberately NOT numbered — a single step numbered "1" implies a step 2
+ * that does not exist.
+ */
+function ScanTarget({
+  title,
+  hint,
+  tint,
+  pending,
+  nonce,
+  onScan,
+  placeholder,
+}: {
+  title: string;
+  hint: string;
+  tint: { text: string };
+  pending: boolean;
+  nonce?: number;
+  onScan: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <h3 className={cn("text-lg font-semibold", tint.text)}>{title}</h3>
+        <p className="text-muted-foreground text-sm">{hint}</p>
+      </div>
+      <ScanInput
+        pending={pending}
+        nonce={nonce}
+        onScan={onScan}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+/**
+ * Issue is the only two-step operation, so it is the only one that is
+ * numbered. The numbering is real information: the member must be loaded
+ * before a scan can mean anything.
+ */
+function IssueSteps({
+  member,
+  pending,
+  nonce,
+  onScan,
+  onClearMember,
+}: {
+  member: MemberHit | null;
+  pending: boolean;
+  nonce?: number;
+  onScan: (value: string) => void;
+  onClearMember: () => void;
+}) {
+  const atLimit = member ? member.booksOut >= member.maxBooks : false;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Step n={1} label="Member" done={Boolean(member)}>
+        {member ? (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-medium">{member.fullName}</span>
+            <span className="text-muted-foreground text-sm">
+              {member.rollNumber ?? "—"} ·{" "}
+              {member.memberType === "staff" ? "Faculty" : "Student"} ·{" "}
+              {member.booksOut}/{member.maxBooks} books
+            </span>
+            {member.owed > 0 ? (
+              <Badge className="bg-overdue-subtle text-overdue">
+                ₹{member.owed.toFixed(2)} due
+              </Badge>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto"
+              onClick={onClearMember}
+            >
+              <XIcon />
+              Change
+            </Button>
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Search by name or roll number on the right.
+          </p>
+        )}
+      </Step>
+
+      <Step n={2} label="Book" done={false} muted={!member}>
+        {atLimit ? (
+          <p className="text-overdue text-sm font-medium">
+            {member!.fullName} is at the {member!.maxBooks}-book limit. Take a
+            book back before issuing another.
+          </p>
+        ) : (
+          <ScanInput
+            pending={pending}
+            nonce={nonce}
+            onScan={onScan}
+            disabled={!member}
+            placeholder={member ? "Scan to issue…" : "Load a member first…"}
+          />
+        )}
+      </Step>
+    </div>
+  );
+}
+
+/** One numbered step in the issue sequence. */
+function Step({
+  n,
+  label,
+  done,
+  muted,
+  children,
+}: {
+  n: number;
+  label: string;
+  done: boolean;
+  muted?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("flex gap-3", muted && "opacity-55")}>
+      <span
+        className={cn(
+          "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
+          done ? "bg-issued text-issued-foreground" : "bg-muted text-muted-foreground",
+        )}
+        aria-hidden
+      >
+        {done ? <CheckIcon className="size-3.5" /> : n}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+          {label}
+        </span>
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -544,22 +763,20 @@ function MemberPanel({
 }) {
   const pending = member.accountStatus === "pending";
 
+  // The member's name and counts live in step 1 above; this card carries only
+  // what step 1 cannot — the approval warning, and the books they hold.
   return (
     <Card className={pending ? "border-pending" : undefined}>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2">
-          {member.fullName}
+          {pending ? "Before you issue" : `Books with ${member.fullName}`}
           {pending ? (
             <Badge className="bg-pending-subtle text-pending">Awaiting approval</Badge>
           ) : null}
         </CardTitle>
-        <CardDescription>
-          {member.rollNumber ?? "—"}
-          {member.department ? ` · ${member.department}` : ""} ·{" "}
-          {member.memberType === "staff" ? "Faculty" : "Student"} ·{" "}
-          {member.booksOut}/{member.maxBooks} books
-          {member.owed > 0 ? ` · ₹${member.owed.toFixed(2)} due` : ""}
-        </CardDescription>
+        {!pending ? (
+          <CardDescription>Renew any of these without a new scan.</CardDescription>
+        ) : null}
       </CardHeader>
 
       {pending ? (
