@@ -62,7 +62,11 @@ export function AppSidebar({
           <span className="text-sidebar-primary text-[0.6rem] font-semibold tracking-[0.18em] uppercase">
             Jeppiaar Educity
           </span>
-          <span className="text-base font-semibold">Library</span>
+          {/* Wraps to two lines inside a 16rem sidebar; balanced so it breaks
+              after "Library Management" rather than orphaning "System". */}
+          <span className="text-base leading-snug font-semibold text-balance">
+            Library Management System
+          </span>
         </Link>
       </SidebarHeader>
 
