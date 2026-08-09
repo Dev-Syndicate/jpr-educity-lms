@@ -38,12 +38,18 @@ export function SiteHeader() {
         <h1 className="text-base font-medium">{title}</h1>
 
         {pathname !== "/counter" ? (
-          <Button size="sm" className="ml-auto" render={
-            <Link href="/counter">
-              <ScanBarcodeIcon />
-              Counter
-            </Link>
-          } />
+          // nativeButton={false}: the rendered element is an <a>, not a
+          // <button>. Without it Base UI warns about lost button semantics.
+          <Button
+            className="ml-auto"
+            nativeButton={false}
+            render={
+              <Link href="/counter">
+                <ScanBarcodeIcon />
+                Counter
+              </Link>
+            }
+          />
         ) : null}
       </div>
     </header>

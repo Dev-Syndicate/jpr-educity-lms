@@ -90,7 +90,12 @@ export default async function DashboardPage() {
           </CardDescription>
           {overdueRows.length ? (
             <CardAction>
-              <Button variant="outline" size="sm" render={<Link href="/loans">All loans</Link>} />
+              <Button
+                variant="outline"
+                size="sm"
+                nativeButton={false}
+                render={<Link href="/loans">All loans</Link>}
+              />
             </CardAction>
           ) : null}
         </CardHeader>

@@ -57,7 +57,7 @@ export function LoginForm({ next }: { next?: string }) {
           <FieldError errors={state.fieldErrors?.password?.map((m) => ({ message: m }))} />
         </Field>
 
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" size="lg" disabled={pending} className="w-full">
           {pending ? <Spinner /> : null}
           Sign in
         </Button>
