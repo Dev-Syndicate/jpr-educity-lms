@@ -154,7 +154,10 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      {/* A rule above the account row: without it the footer floats and the
+          nav list has no visible end, so nothing says the row is a control
+          rather than a caption. */}
+      <SidebarFooter className="border-sidebar-border border-t">
         <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { BackLink } from "@/components/back-link";
 import { requireLibrarian } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 
@@ -24,9 +25,9 @@ export default async function EditBookPage(props: PageProps<"/books/[id]/edit">)
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="flex flex-col gap-2">
+        <BackLink href={`/books/${book.id}`} label={book.title} />
         <h2 className="text-xl font-semibold tracking-tight">Edit book</h2>
-        <p className="text-muted-foreground text-sm">{book.title}</p>
       </div>
       <BookForm book={book} />
     </div>

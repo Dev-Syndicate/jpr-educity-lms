@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { BackLink } from "@/components/back-link";
 import { requireLibrarian } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,9 +23,9 @@ export default async function EditMemberPage(props: PageProps<"/members/[id]/edi
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="flex flex-col gap-2">
+        <BackLink href={`/members/${data.id}`} label={data.full_name} />
         <h2 className="text-xl font-semibold tracking-tight">Edit member</h2>
-        <p className="text-muted-foreground text-sm">{data.full_name}</p>
       </div>
       <MemberForm
         member={{
