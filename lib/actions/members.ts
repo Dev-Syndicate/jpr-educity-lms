@@ -1,6 +1,6 @@
 "use server";
 
-import { refresh } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireLibrarian } from "@/lib/dal";
@@ -138,4 +138,212 @@ export async function rejectMember(
 
   refresh();
   return success(undefined, `${data.member_name}'s registration was rejected.`);
+}
+
+// ---------------------------------------------------------------------------
+// Account creation (service role) and profile editing.
+// ---------------------------------------------------------------------------
+
+const createSchema = z.object({
+  fullName: z.string().trim().min(1, "Name is required.").max(200),
+  email: z.email("Enter a valid email address.").trim().toLowerCase(),
+  rollNumber: z.string().trim().min(1, "Roll or staff number is required.").max(50),
+  memberType: z.enum(["student", "staff"]),
+  department: z.string().trim().max(120).optional(),
+  phone: z.string().trim().max(20).optional(),
+  password: z.string().min(8, "Use at least 8 characters."),
+});
+
+export async function createMember(
+  _prev: ActionState<{ email: string; password: string }>,
+  formData: FormData,
+): Promise<ActionState<{ email: string; password: string }>> {
+  // Never skip: this action wraps the service-role key.
+  await requireLibrarian();
+
+  const parsed = createSchema.safeParse({
+    fullName: formData.get("fullName"),
+    email: formData.get("email"),
+    rollNumber: formData.get("rollNumber"),
+    memberType: formData.get("memberType"),
+    department: formData.get("department") ?? undefined,
+    phone: formData.get("phone") ?? undefined,
+    password: formData.get("password"),
+  });
+
+  if (!parsed.success) {
+    return failure("Check the details below.", z.flattenError(parsed.error).fieldErrors);
+  }
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+
+  const { data: created, error: authError } = await admin.auth.admin.createUser({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    email_confirm: true, // no SMTP configured; skip the verification round trip
+    user_metadata: { full_name: parsed.data.fullName },
+  });
+
+  if (authError) {
+    return failure(authError.message, { email: [authError.message] });
+  }
+
+  // handle_new_user() already created a pending profile; fill in the real
+  // values and activate, since a librarian is vouching for this person.
+  const { error } = await admin
+    .from("profiles")
+    .update({
+      full_name: parsed.data.fullName,
+      email: parsed.data.email,
+      roll_number: parsed.data.rollNumber,
+      member_type: parsed.data.memberType,
+      department: parsed.data.department || null,
+      phone: parsed.data.phone || null,
+      role: "member",
+      account_status: "active",
+      is_active: true,
+    })
+    .eq("id", created.user.id);
+
+  if (error) {
+    // Roll back the auth user, or the email is claimed by a broken account.
+    await admin.auth.admin.deleteUser(created.user.id);
+    if (error.code === "23505") {
+      return failure("That roll number is already registered.", {
+        rollNumber: ["Already in use."],
+      });
+    }
+    return failure(rpcErrorMessage(error, "Could not create that member."));
+  }
+
+  revalidatePath("/members");
+  return success(
+    { email: parsed.data.email, password: parsed.data.password },
+    `${parsed.data.fullName} can now borrow books.`,
+  );
+}
+
+const updateSchema = z.object({
+  memberId: z.uuid(),
+  fullName: z.string().trim().min(1, "Name is required.").max(200),
+  rollNumber: z.string().trim().min(1, "Roll or staff number is required.").max(50),
+  memberType: z.enum(["student", "staff"]),
+  department: z.string().trim().max(120).optional(),
+  phone: z.string().trim().max(20).optional(),
+});
+
+export async function updateMember(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireLibrarian();
+
+  const parsed = updateSchema.safeParse({
+    memberId: formData.get("memberId"),
+    fullName: formData.get("fullName"),
+    rollNumber: formData.get("rollNumber"),
+    memberType: formData.get("memberType"),
+    department: formData.get("department") ?? undefined,
+    phone: formData.get("phone") ?? undefined,
+  });
+
+  if (!parsed.success) {
+    return failure("Check the details below.", z.flattenError(parsed.error).fieldErrors);
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      full_name: parsed.data.fullName,
+      roll_number: parsed.data.rollNumber,
+      member_type: parsed.data.memberType,
+      department: parsed.data.department || null,
+      phone: parsed.data.phone || null,
+    })
+    .eq("id", parsed.data.memberId);
+
+  if (error) {
+    if (error.code === "23505") {
+      return failure("That roll number is already in use.", {
+        rollNumber: ["Already in use."],
+      });
+    }
+    return failure(rpcErrorMessage(error, "Could not save those changes."));
+  }
+
+  refresh();
+  return success(undefined, "Saved.");
+}
+
+export async function setMemberActive(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireLibrarian();
+
+  const memberId = String(formData.get("memberId") ?? "");
+  const active = formData.get("active") === "true";
+
+  if (!z.uuid().safeParse(memberId).success) return failure("That member no longer exists.");
+
+  const supabase = await createClient();
+
+  // Deactivating someone still holding books would strand those loans.
+  if (!active) {
+    const { count } = await supabase
+      .from("loans")
+      .select("*", { count: "exact", head: true })
+      .eq("member_id", memberId)
+      .is("returned_at", null);
+
+    if ((count ?? 0) > 0) {
+      return failure(
+        `They still have ${count} book(s) issued. Collect those before deactivating.`,
+      );
+    }
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_active: active })
+    .eq("id", memberId);
+
+  if (error) return failure(rpcErrorMessage(error, "Could not update that member."));
+
+  refresh();
+  return success(undefined, active ? "Member reactivated." : "Member deactivated.");
+}
+
+export async function approveMember(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireLibrarian();
+
+  const parsed = z
+    .object({
+      memberId: z.uuid(),
+      memberType: z.enum(["student", "staff"]).optional(),
+    })
+    .safeParse({
+      memberId: formData.get("memberId"),
+      memberType: formData.get("memberType") ?? undefined,
+    });
+
+  if (!parsed.success) return failure("Could not approve that registration.");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .rpc("approve_member", {
+      p_profile_id: parsed.data.memberId,
+      p_member_type: parsed.data.memberType ?? undefined,
+    })
+    .single();
+
+  if (error) return failure(rpcErrorMessage(error, "Could not approve that registration."));
+
+  refresh();
+  return success(undefined, `${data.member_name} can now borrow books.`);
 }

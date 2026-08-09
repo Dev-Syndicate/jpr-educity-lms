@@ -1,0 +1,21 @@
+import { requireLibrarian } from "@/lib/dal";
+
+import { BookForm } from "../book-form";
+
+export const metadata = { title: "Add book · Jeppiaar Educity Library" };
+
+export default async function NewBookPage() {
+  await requireLibrarian();
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">Add a book</h2>
+        <p className="text-muted-foreground text-sm">
+          Create the title, then its physical copies.
+        </p>
+      </div>
+      <BookForm />
+    </div>
+  );
+}
