@@ -30,6 +30,15 @@ export function rpcErrorMessage(
   if (code === "23503") return "That record is still referenced elsewhere.";
   if (code === "42501") return "You do not have permission to do this.";
 
+  // 42xxx is a malformed statement — a bug in our SQL, not something the
+  // librarian did. It still gets the generic message (the real text names
+  // columns and helps nobody at a counter), but it is logged loudly so it
+  // does not hide behind a fallback the way 42702 did in mark_copy_lost.
+  if (code?.startsWith("42")) {
+    console.error("[rpc:BUG] malformed statement", code, message);
+    return fallback;
+  }
+
   console.error("[rpc]", code, message);
   return fallback;
 }
