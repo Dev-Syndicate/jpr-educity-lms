@@ -335,7 +335,9 @@ function ModeSelector({
       }}
       spacing={2}
       aria-label="What the next scan does"
-      className="grid w-full grid-cols-3"
+      // One column on a phone: three cards cannot hold "Give a book to a
+      // member" side by side, and the captions spilled over each other.
+      className="grid w-full grid-cols-1 sm:grid-cols-3"
     >
       {MODES.map((m) => {
         const isActive = m.value === mode;
@@ -345,14 +347,18 @@ function ModeSelector({
             key={m.value}
             value={m.value}
             className={cn(
-              "h-auto flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left",
+              // whitespace-normal overrides the toggle's nowrap, which forced
+              // the caption onto one line and let it spill across the card.
+              "h-auto flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left whitespace-normal",
               isActive
                 ? "border-primary bg-primary/5 text-primary"
                 : "border-border bg-card",
             )}
           >
             <span className="text-sm font-semibold">{m.label}</span>
-            <span className="text-xs font-normal opacity-80">{m.caption}</span>
+            <span className="w-full text-xs leading-snug font-normal opacity-80">
+              {m.caption}
+            </span>
           </ToggleGroupItem>
         );
       })}

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 
 import {
   Sidebar,
@@ -24,6 +25,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import type { CurrentUser } from "@/lib/types";
 
@@ -46,6 +48,18 @@ export function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar> & { user: CurrentUser }) {
   const pathname = usePathname();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  /**
+   * Close the mobile sheet once navigation has happened.
+   *
+   * Keyed on the path rather than wired to each link, so it also covers the
+   * wordmark and anything added later — and it only closes on a real
+   * navigation, not on a tap that goes nowhere.
+   */
+  useEffect(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [pathname, isMobile, setOpenMobile]);
 
   const isActive = (url: string) =>
     pathname === url || pathname.startsWith(`${url}/`);
