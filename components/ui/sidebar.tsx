@@ -335,8 +335,8 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-header"
       data-sidebar="header"
       className={cn(
-        // pb-1: the first group below already carries py-2.5, so a matching
-        // bottom pad here would read as a gap rather than as breathing room.
+        // Tight by default because the first group below carries its own
+        // py-2.5; a consumer that adds a divider overrides the bottom pad.
         "flex flex-col gap-2 px-3 pt-3 pb-1 group-data-[collapsible=icon]:px-2",
         className
       )}

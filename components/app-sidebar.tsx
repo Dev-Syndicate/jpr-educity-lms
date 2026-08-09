@@ -52,7 +52,9 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
+      {/* A rule below the wordmark, matching the footer, so the brand is its
+          own region and its second line cannot crowd the first nav item. */}
+      <SidebarHeader className="border-sidebar-border border-b pb-3">
         {/* A wordmark, not a nav item: it sizes to its own two lines rather
             than to a menu row, so it does not sit in an oversized box. */}
         <Link
