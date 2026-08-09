@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Jeppiaar Educity Library">
+  <!-- Crest colours are hardcoded: a favicon is rasterised outside the
+       document and cannot read the tokens in globals.css. These are
+       --brand-deep and --gold from :root, converted to sRGB. If either token
+       changes there, change it here too. Gold on deep green is the sanctioned
+       pairing (7.4:1); gold on white would be 2.1:1 and unreadable. -->
+  <rect width="64" height="64" rx="14" fill="#1a3118"/>
+
+  <!-- An open book, drawn as paths rather than <text>: a font-based monogram
+       renders in whatever face the rasterising machine happens to have, and
+       Georgia is not guaranteed. Paths look identical everywhere.
+
+       A book rather than a "JE" monogram because at 16px a silhouette is
+       recognisable where two serif letters are just a smudge. -->
+  <g fill="none" stroke="#e0b84d" stroke-width="3.5"
+     stroke-linecap="round" stroke-linejoin="round">
+    <!-- The spine, and the two leaves falling away from it. -->
+    <path d="M32 20.5v25"/>
+    <path d="M32 20.5C27.5 17 22 16 16.5 16.5v25c5.5-.5 11 .5 15.5 4"/>
+    <path d="M32 20.5C36.5 17 42 16 47.5 16.5v25c-5.5-.5-11 .5-15.5 4"/>
+  </g>
+</svg>
