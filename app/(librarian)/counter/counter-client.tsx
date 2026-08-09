@@ -21,6 +21,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -662,6 +670,18 @@ function BookSearch() {
   );
 }
 
+/**
+ * Member autocomplete for step 1.
+ *
+ * A dropdown anchored to the field rather than a list pushed inline below it:
+ * with a few hundred members, "ar" matches enough people to shove the rest of
+ * the wizard off the screen. The results overlay instead, and the list itself
+ * scrolls.
+ *
+ * Filtering is done by Postgres, not the browser — `filter={null}` stops Base
+ * UI re-filtering server results, which would hide rows matched on a field
+ * the label does not show (a roll number, say).
+ */
 function MemberSearch({ onSelect }: { onSelect: (member: MemberHit) => void }) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<MemberHit[]>([]);
@@ -692,68 +712,65 @@ function MemberSearch({ onSelect }: { onSelect: (member: MemberHit) => void }) {
     if (debounce.current) clearTimeout(debounce.current);
   }, []);
 
-  // Lives inside step 1 of the issue wizard, so it renders bare — a card
-  // here would be a second place to do the same job.
+  const typedEnough = query.trim().length >= 2;
+
   return (
-    <div className="flex flex-col gap-3">
-      <>
-        <div className="relative">
-          <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-          <Input
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Name or roll number"
-            className="pl-9"
-            autoFocus
-            aria-label="Search members"
-          />
-          {searching ? (
-            <Spinner className="text-muted-foreground absolute top-1/2 right-3 size-4 -translate-y-1/2" />
-          ) : null}
-        </div>
+    <Combobox
+      items={hits}
+      filter={null}
+      value={null}
+      inputValue={query}
+      onInputValueChange={onQueryChange}
+      onValueChange={(value) => {
+        const hit = value as MemberHit | null;
+        if (!hit) return;
+        onSelect(hit);
+        onQueryChange("");
+      }}
+      itemToStringLabel={(hit: MemberHit) => hit.fullName}
+    >
+      <ComboboxInput
+        placeholder="Search name or roll number"
+        showTrigger={false}
+        autoFocus
+        aria-label="Search members"
+      />
 
-        {hits.length ? (
-          <ul className="flex flex-col gap-1">
-            {hits.map((hit) => (
-              <li key={hit.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelect(hit);
-                    onQueryChange("");
-                    setHits([]);
-                  }}
-                  className="hover:bg-accent flex w-full flex-col items-start gap-1 rounded-lg p-2.5 text-left transition-colors"
-                >
-                  <span className="flex w-full items-center gap-2">
-                    <span className="flex-1 truncate font-medium">{hit.fullName}</span>
-                    {hit.accountStatus === "pending" ? (
-                      <Badge className="bg-pending-subtle text-pending">Pending</Badge>
-                    ) : null}
-                    {!hit.isActive ? (
-                      <Badge className="bg-overdue-subtle text-overdue">Inactive</Badge>
-                    ) : null}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {hit.rollNumber ?? "—"}
-                    {hit.department ? ` · ${hit.department}` : ""}
-                    {" · "}
-                    {hit.booksOut}/{hit.maxBooks} books
-                    {hit.owed > 0 ? ` · ₹${hit.owed.toFixed(2)} due` : ""}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+      <ComboboxContent>
+        <ComboboxEmpty>
+          {searching
+            ? "Searching…"
+            : typedEnough
+              ? `No member matches “${query.trim()}”.`
+              : "Type at least two characters."}
+        </ComboboxEmpty>
 
-        {query.trim().length >= 2 && !searching && !hits.length ? (
-          <p className="text-muted-foreground p-2 text-sm">
-            No member matches “{query.trim()}”.
-          </p>
-        ) : null}
-      </>
-    </div>
+        <ComboboxList>
+          {(hit: MemberHit) => (
+            <ComboboxItem key={hit.id} value={hit} className="items-start">
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex items-center gap-2">
+                  <span className="truncate font-medium">{hit.fullName}</span>
+                  {hit.accountStatus === "pending" ? (
+                    <Badge className="bg-pending-subtle text-pending">Pending</Badge>
+                  ) : null}
+                  {!hit.isActive ? (
+                    <Badge className="bg-overdue-subtle text-overdue">Inactive</Badge>
+                  ) : null}
+                </span>
+                <span className="text-muted-foreground truncate text-xs">
+                  {hit.rollNumber ?? "—"}
+                  {hit.department ? ` · ${hit.department}` : ""}
+                  {" · "}
+                  {hit.booksOut}/{hit.maxBooks} books
+                  {hit.owed > 0 ? ` · ₹${hit.owed.toFixed(2)} due` : ""}
+                </span>
+              </div>
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }
 

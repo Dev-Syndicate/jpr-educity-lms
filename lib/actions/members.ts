@@ -44,9 +44,12 @@ export async function searchMembers(query: string): Promise<MemberHit[]> {
       )
       .eq("role", "member")
       .or(`full_name.ilike.%${q}%,roll_number.ilike.%${q}%`)
+      // Active before pending, then alphabetical. Capped: a two-letter query
+      // against a few hundred members would otherwise return most of them,
+      // and nobody picks a person out of a list that long — they type more.
       .order("account_status")
       .order("full_name")
-      .limit(8),
+      .limit(20),
     supabase
       .from("settings")
       .select("max_books_student, max_books_staff")
