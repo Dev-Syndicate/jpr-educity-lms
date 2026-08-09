@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState } from "react";
 
 import { FormFeedback, SubmitButton, fieldErrors } from "@/components/form-feedback";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Empty, EmptyTitle } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
 import {
   Field,
   FieldDescription,
@@ -28,7 +29,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { addCopies, markCopyLost, setCopyStatus } from "@/lib/actions/books";
+import {
+  addCopies,
+  markCopyLost,
+  setCopyShelfLocation,
+  setCopyStatus,
+} from "@/lib/actions/books";
 import { idleState, type CopyStatus } from "@/lib/types";
 
 export type CopyRow = {
@@ -60,12 +66,17 @@ export function CopiesPanel({
     idleState,
   );
   const [lostState, lostAction, lostPending] = useActionState(markCopyLost, idleState);
+  const [shelfState, shelfAction, shelfPending] = useActionState(
+    setCopyShelfLocation,
+    idleState,
+  );
 
   // Row actions announce themselves through the toast only. An inline banner
   // above the table pushed every row down on each click, and said the same
   // thing the toast was already saying.
-  const rowResult =
-    (statusState.nonce ?? 0) > (lostState.nonce ?? 0) ? statusState : lostState;
+  const rowResult = [statusState, lostState, shelfState].reduce((a, b) =>
+    (b.nonce ?? 0) > (a.nonce ?? 0) ? b : a,
+  );
 
   return (
     <Card>
@@ -117,6 +128,7 @@ export function CopiesPanel({
             <TableHeader>
               <TableRow>
                 <TableHead>Serial no.</TableHead>
+                <TableHead>Shelf</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Held by</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -126,6 +138,14 @@ export function CopiesPanel({
               {copies.map((copy) => (
                 <TableRow key={copy.id}>
                   <TableCell className="font-mono">{copy.accession_number}</TableCell>
+                  <TableCell>
+                    <ShelfCell
+                      copyId={copy.id}
+                      value={copy.shelf_location}
+                      action={shelfAction}
+                      pending={shelfPending}
+                    />
+                  </TableCell>
                   <TableCell>
                     <Badge className={STATUS_STYLE[copy.status]}>{copy.status}</Badge>
                   </TableCell>
@@ -175,5 +195,53 @@ export function CopiesPanel({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Shelf location, edited in place.
+ *
+ * A shelf changes whenever books are reorganised, so this is a field rather
+ * than a read-only value behind an Edit page. It submits on blur or Enter —
+ * a Save button per row would be a lot of buttons for a one-word field.
+ */
+function ShelfCell({
+  copyId,
+  value,
+  action,
+  pending,
+}: {
+  copyId: string;
+  value: string | null;
+  action: (formData: FormData) => void;
+  pending: boolean;
+}) {
+  const initial = value ?? "";
+
+  function submit(next: string) {
+    // Nothing typed, or nothing changed — do not spend a round trip.
+    if (next.trim() === initial) return;
+
+    const fd = new FormData();
+    fd.set("copyId", copyId);
+    fd.set("shelfLocation", next.trim());
+    startTransition(() => action(fd));
+  }
+
+  return (
+    <Input
+      defaultValue={initial}
+      disabled={pending}
+      placeholder="—"
+      aria-label="Shelf location"
+      className="h-8 w-28 font-mono text-sm"
+      onBlur={(event) => submit(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+    />
   );
 }

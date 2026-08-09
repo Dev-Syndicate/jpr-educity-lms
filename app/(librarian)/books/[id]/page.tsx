@@ -60,8 +60,21 @@ export default async function BookDetailPage(props: PageProps<"/books/[id]">) {
     };
   });
 
+  // Where to walk to. Copies of one title usually share a shelf, so a single
+  // value answers it; when they are split, say so rather than pick one.
+  const shelves = [
+    ...new Set(
+      rows
+        .map((copy) => copy.shelf_location?.trim())
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const shelf =
+    shelves.length === 0 ? null : shelves.length === 1 ? shelves[0] : shelves.join(", ");
+
   const details = [
     ["Author", book.author],
+    ["Shelf", shelf],
     ["ISBN", book.isbn],
     ["Publisher", book.publisher],
     ["Edition", book.edition],

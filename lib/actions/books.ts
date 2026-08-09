@@ -351,3 +351,48 @@ export async function searchBooks(query: string): Promise<BookHit[]> {
     nextDue: dueByBook.get(b.id!) ?? null,
   }));
 }
+
+/**
+ * Set (or clear) where a copy sits on the shelf.
+ *
+ * Free text — shelving schemes differ, and this is read by a person walking
+ * to a shelf, not parsed. Blank clears it.
+ */
+export async function setCopyShelfLocation(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireLibrarian();
+
+  const parsed = z
+    .object({
+      copyId: z.uuid(),
+      shelfLocation: z.string().trim().max(60, "Keep it under 60 characters."),
+    })
+    .safeParse({
+      copyId: formData.get("copyId"),
+      shelfLocation: formData.get("shelfLocation") ?? "",
+    });
+
+  if (!parsed.success) {
+    return failure(parsed.error.issues[0]?.message ?? "Could not save that location.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("book_copies")
+    .update({ shelf_location: parsed.data.shelfLocation || null })
+    .eq("id", parsed.data.copyId)
+    .select("accession_number")
+    .single();
+
+  if (error) return failure(rpcErrorMessage(error, "Could not save that location."));
+
+  refresh();
+  return success(
+    undefined,
+    parsed.data.shelfLocation
+      ? `${data.accession_number} is on shelf ${parsed.data.shelfLocation}.`
+      : `Cleared the shelf location for ${data.accession_number}.`,
+  );
+}
