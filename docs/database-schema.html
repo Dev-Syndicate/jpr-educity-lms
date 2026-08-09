@@ -386,9 +386,9 @@
 
       <!-- pending -> active -->
       <path d="M 664 190 C 740 190 750 96 806 90" fill="none" stroke="#2c6e49" stroke-width="2" marker-end="url(#ar4)"/>
-      <text x="726" y="140" text-anchor="middle" font-size="10.5" font-weight="600" fill="#2c6e49">approve</text>
-      <text x="726" y="154" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".7">librarian verifies</text>
-      <text x="726" y="167" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".7">roll no. + member type</text>
+      <text x="730" y="134" text-anchor="middle" font-size="10.5" font-weight="600" fill="#2c6e49">approve — at the counter,</text>
+      <text x="730" y="148" text-anchor="middle" font-size="10.5" font-weight="600" fill="#2c6e49">on first borrow</text>
+      <text x="730" y="163" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".7">ID card checked in person</text>
 
       <!-- pending -> rejected -->
       <path d="M 664 220 C 740 232 760 276 806 280" fill="none" stroke="#a8321f" stroke-width="1.6" marker-end="url(#ar4)"/>
@@ -402,6 +402,11 @@
   </div>
   <figcaption>Public registration can only ever produce a <strong>pending member</strong>. The role and status are hard-coded inside the registration function rather than accepted from the form, so submitting <code>role=librarian</code> yields an ordinary pending applicant.</figcaption>
 </figure>
+
+<div class="call ok">
+  <strong>Approval happens at the counter, not in a queue</strong>
+  A pending account waits indefinitely at no cost. It is approved the first time the person turns up with a book, when the librarian can check a college ID against the declared details and approve-and-issue in a single action. Registrations from people who never borrow simply stay pending — there is no backlog to clear, and nobody has to verify a stranger from a form alone.
+</div>
 
 <div class="call warn">
   <strong>The declared member type is a claim, not a fact</strong>

@@ -78,13 +78,15 @@ There are **two ways** a member account comes into existence. Both end with a li
 #### Path A — the librarian adds the member directly
 The librarian enters the member's details at the counter. The account is **active immediately** and can borrow straight away. This path is always available and is never affected by the toggle below.
 
-#### Path B — the member registers themselves, then is approved
+#### Path B — the member registers themselves, and is approved at the counter
 When public registration is switched on, a prospective member can fill in a registration form. The account is created in a **`pending`** state:
 
 - A pending account **can log in**, but sees only a "waiting for approval" message.
-- A pending account **cannot borrow anything**, and does not appear in counter search results.
-- The librarian reviews pending applications in an approval queue and either **approves** or **rejects** each one.
-- On approval the account becomes active and can borrow.
+- A pending account **cannot borrow anything**.
+- **Approval happens at the counter, on first borrow.** When the member turns up with a book, the librarian searches their name or roll number, sees the pending record, checks their college ID against the declared details, and approves and issues in one step.
+- Once approved the account is active, and every later visit is an ordinary issue with no extra step.
+
+> **Why approval is not a batch queue.** Reviewing hundreds of registrations in the abstract is both a chore nobody completes and a poor check — the librarian has no way to confirm a stranger is enrolled from a form alone. Doing it at the counter means verification happens at the one moment the person is physically present with an ID card, and only for members who actually borrow. Registrations from people who never visit simply stay pending, costing nothing.
 
 **Librarian accounts are only ever created by another librarian.** Public registration creates members exclusively — it can never produce a librarian account. The first librarian is created manually during setup.
 
@@ -227,6 +229,11 @@ This is the most-used screen in the system and the one the product is judged on.
 | C-9 | Success **never** opens a modal dialog, which would cost a keystroke per book. |
 | C-10 | The last 10 operations are listed, with an undo action on the most recent. |
 | C-11 | Rule violations show the specific reason ("Arun already has 3 books issued"), never a generic error. |
+| C-12 | Counter member search finds **pending** members as well as active ones, clearly marked as pending. |
+| C-13 | Selecting a pending member shows everything they declared at registration — name, roll number, department, email — with the **declared member type highlighted**, since it sets the borrowing limit. A prompt reminds the librarian to check the college ID card. |
+| C-14 | **Approve and issue in one action.** The librarian confirms the person, and the scanned book is issued in the same step. |
+| C-15 | Rejecting from the counter is also available, for someone who cannot prove enrolment. |
+| C-16 | Once approved, the member is ordinary — no further approval prompts on later visits. |
 
 ### 4.2 Catalogue management (librarian)
 
@@ -250,18 +257,20 @@ This is the most-used screen in the system and the one the product is judged on.
 | M-4 | Edit a member's details. |
 | M-5 | Deactivate a member. A deactivated member cannot borrow. **Members are never deleted** — history is preserved. |
 | M-6 | Deactivation is blocked while the member holds books. |
-| M-7 | Member lists and counter search show **active members only** by default; pending and rejected accounts are excluded. |
+| M-7 | The member list shows **active members** by default, with filters for pending and rejected. |
 
-### 4.3a Registration approvals (librarian)
+### 4.3a Registrations list (librarian)
+
+Approval normally happens at the counter (C-12 … C-16). This screen exists for browsing and housekeeping, **not** as a task queue.
 
 | ID | Requirement |
 |---|---|
-| A-1 | A queue of pending registrations, with a count badge visible in the navigation so new applications are noticed. |
-| A-2 | Each application shows every field the applicant submitted, including their **declared member type**, highlighted as requiring verification. |
-| A-3 | Approve an application — the account becomes active and can borrow immediately. |
-| A-4 | The librarian can **correct any field before approving** (e.g. fix a mistyped roll number, or change a falsely declared member type from faculty to student). |
-| A-5 | Reject an application, optionally recording a reason. The record is kept, not deleted. |
-| A-6 | View previously rejected applications, and reverse a rejection made in error. |
+| A-1 | A list of self-registered accounts, filterable by pending / rejected. |
+| A-2 | **No count badge and no unread indicator** in the navigation. A large pending count is the expected steady state, not a backlog to clear. |
+| A-3 | The screen states plainly that pending members are approved when they first borrow, and that no action is required here. |
+| A-4 | Approve or reject from this screen too, for a librarian who prefers to work ahead. |
+| A-5 | Rejections are recorded with an optional reason and kept, not deleted. |
+| A-6 | A rejection made in error can be reversed. |
 | A-7 | A registration whose roll number matches an existing member is flagged as a possible duplicate. |
 
 ### 4.4 Circulation records (librarian)
@@ -332,6 +341,7 @@ This is the most-used screen in the system and the one the product is judged on.
 - …when a student wants to keep a book longer, I click Renew and the new due date is set to 15 days from today.
 - …when a student tries to borrow a fourth book, I am told immediately that they already have three.
 - …when an overdue book is brought for renewal, I am told the fine must be collected first, and how much.
+- …when a student who registered online comes to borrow for the first time, I search their roll number, check their ID card against what they entered, and approve and issue in one step — without leaving the counter screen.
 
 **As a librarian managing the library…**
 - …I add a new title and create five copies at once, with accession numbers generated for me.
@@ -423,13 +433,18 @@ The system is accepted when every one of the following passes.
 - [ ] With the toggle **on**, a registration creates a **pending** account, never an active one.
 - [ ] A registration submitting `role=librarian` still produces a plain pending member.
 - [ ] A registration submitting an already-active status still produces a pending account.
-- [ ] A pending member cannot be issued a book, including by a librarian at the counter.
+- [ ] A pending member cannot be issued a book by any direct API call.
 - [ ] A pending member cannot read the catalogue or any loan data.
-- [ ] Approving a pending member makes them immediately borrowable-to.
-- [ ] A librarian can change a falsely declared member type before approving, and the corrected limit applies.
 - [ ] A rejected applicant cannot log in, and their email remains claimed.
 - [ ] Registering with an existing email or roll number is refused with a clear message.
-- [ ] Pending and rejected accounts do not appear in counter member search.
+
+### Approval at the counter
+- [ ] Counter search finds a pending member and marks them clearly as pending.
+- [ ] The pending record displays the declared member type prominently before approval.
+- [ ] "Approve and issue" approves the member and issues the scanned book in one action.
+- [ ] After approval, a second issue to the same member needs no approval step.
+- [ ] Rejecting from the counter records the decision and prevents borrowing.
+- [ ] The navigation shows **no count badge** for pending registrations.
 
 ### Counter usability
 - [ ] A complete issue is possible with a member loaded and one scan.
@@ -537,6 +552,7 @@ Migrations in `supabase/migrations/`, ordered so dependencies resolve:
 | `issue_book(p_accession_number, p_member_id)` | Copy available; member `is_active` **and `account_status = 'active'`**; under max-books for their type. Creates loan, `due_date = today_ist() + loan_period_days`. |
 | `register_member(...)` | **The only path that runs as an anonymous caller.** Refuses unless the registration toggle is on. Forces `role='member'` and `account_status='pending'` regardless of input. Rejects duplicate email or roll number. |
 | `approve_member(p_profile_id, …)` | Librarian only. Sets `account_status='active'`, records `approved_by`/`approved_at`. Accepts corrected field values (e.g. member type). |
+| `approve_and_issue(p_profile_id, p_accession_number, …)` | Librarian only. Approves the pending member **and** issues the copy in **one transaction** — so a failure at the issue step (copy already out, limit reached) leaves the member un-approved rather than half-processed. |
 | `reject_member(p_profile_id, p_reason)` | Librarian only. Sets `account_status='rejected'`, records reason and actor. The row is retained, so the email stays claimed. |
 | `return_book(p_loan_id)` | Sets `returned_at`, computes and **freezes** the final fine, marks copy available. |
 | `renew_loan(p_loan_id)` | `renewal_count < max_renewals`; **rejects while any unpaid fine exists on the loan**. New `due_date = today_ist() + loan_period_days`. |
@@ -569,7 +585,7 @@ app/
     counter/                      # THE scan screen
     books/ [id]/ new/ copies/     # Catalogue CRUD + copy management
     members/ [id]/ new/ edit/     # Member CRUD
-    approvals/                    # Pending queue + rejected history
+    registrations/                # Quiet list of pending/rejected — no badge
     loans/                        # All active loans; All / Due today / Overdue
     fines/                        # Collect or waive
     staff/                        # Librarian accounts
@@ -647,8 +663,8 @@ Each phase ends in something runnable and demoable.
 | **3. Catalogue read** | `/books` search + pagination, `/books/[id]`, loading/empty/error states. | Search by title/author/ISBN over real rows. |
 | **4. Catalogue write** | `createBook`, `updateBook`, `addCopies`, `setCopyStatus`. Establishes the zod + `ActionState` pattern. | Add a book with 5 copies; see `JPR-000xx` accession numbers. |
 | **5. Members** | `createMember` (first service-role use), list/detail/edit. | Create a student, log in as them, land on an empty `/my`. |
-| **5a. Registration** | `register_member` RPC, `/register` page, `/approvals` queue, approve/reject actions, the Settings toggle. | With the toggle on, register as a stranger → pending, cannot borrow; approve → can borrow. With it off, the API call is refused. |
-| **6. The counter** | `issueBook`, `returnBook`, `renewLoan`, `ScanInput`, feedback, undo. `/loans`. | Issue and return with a real USB scanner; breach the 3-book limit and see the RPC message verbatim. |
+| **5a. Registration** | `register_member` RPC, `/register` page, `/registrations` list, approve/reject actions, the Settings toggle. | With the toggle on, register as a stranger → pending, cannot borrow. With it off, the API call is refused. |
+| **6. The counter** | `issueBook`, `returnBook`, `renewLoan`, `approveAndIssue`, `ScanInput`, feedback, undo. `/loans`. | Issue and return with a real USB scanner; breach the 3-book limit and see the RPC message verbatim; find a pending member and approve-and-issue in one step. |
 | **7. Fines & settings** | `collectFine`, `waiveFine`, `/fines`, `/settings`. | Back-date a due date, watch ₹1/day accrue, collect it; confirm renewal is blocked until paid. |
 | **8. Member portal** | `/my`, `/my/history`, `/my/catalogue`. | As a member, no mutating control is reachable anywhere. |
 | **9. Hardening** | `/staff`, error boundaries, RLS penetration pass. | With a member's session, direct queries and RPCs fail **at the database**. |
