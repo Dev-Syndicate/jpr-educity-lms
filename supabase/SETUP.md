@@ -57,6 +57,27 @@ pnpm dlx supabase link --project-ref <your-project-ref>
 pnpm dlx supabase db push
 ```
 
+### On a brand-new database, migration 9 fails — this is expected
+
+`20260809090800_seed.sql` creates a sample catalogue whose copies call
+`next_accession_number()`. Migration `20260809091300` later replaced that
+function with one that only raises: accession numbers are now read off the
+physical copy by the librarian, never generated. The seed therefore aborts
+with:
+
+```
+Accession numbers are entered from the physical copy, not generated.
+```
+
+The sample catalogue is scaffolding and is deleted again by
+`20260809091500_remove_sample_catalogue.sql`, so **nothing of value is lost.**
+Comment out the sample-catalogue block in the seed (the `insert into
+public.books` and the `do $$ ... $$;` after it — keep the `settings` insert at
+the top), then re-run `db push`.
+
+The seed file is left intact rather than edited because migrations are
+append-only once applied to a shared database.
+
 Useful afterwards:
 
 ```bash
