@@ -1,4 +1,8 @@
+import Link from "next/link";
+
+import { SearchField } from "@/components/search-field";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import {
@@ -16,37 +20,91 @@ import { FineActions } from "./fine-actions";
 
 export const metadata = { title: "Fines · Jeppiaar Educity Library" };
 
-export default async function FinesPage() {
+const PAGE_SIZE = 25;
+
+export default async function FinesPage(props: PageProps<"/fines">) {
   await requireLibrarian();
 
+  const { q, page } = await props.searchParams;
+  const query = typeof q === "string" ? q.trim() : "";
+  const pageNo = Math.max(1, Number(page) || 1);
+  const from = (pageNo - 1) * PAGE_SIZE;
+
   const supabase = await createClient();
-  const { data: fines } = await supabase
+
+  // A search has to reach the member's name and the book's title, neither of
+  // which lives on `fines`. Marking those embeds `!inner` turns them into joins
+  // so a filter on them constrains the fine rows themselves.
+  const embeds = query
+    ? "profiles!fines_member_id_fkey!inner(full_name, roll_number), loans!inner(book_id, books!inner(title))"
+    : "profiles!fines_member_id_fkey(full_name, roll_number), loans(book_id, books(title))";
+
+  let request = supabase
     .from("fines")
-    .select(
-      "id, amount, assessed_at, member_id, loan_id, profiles!fines_member_id_fkey(full_name, roll_number), loans(book_id, books(title))",
-    )
+    .select(`id, amount, assessed_at, member_id, loan_id, ${embeds}`, {
+      count: "exact",
+    })
     .eq("is_paid", false)
     .eq("is_waived", false)
     .not("assessed_at", "is", null)
     .order("assessed_at", { ascending: false })
-    .limit(100);
+    .range(from, from + PAGE_SIZE - 1);
 
-  const total = (fines ?? []).reduce((sum, f) => sum + Number(f.amount ?? 0), 0);
+  if (query) {
+    // Dotted paths reach through the inner joins, so one or() spans the
+    // member and the book title together.
+    request = request.or(
+      `profiles.full_name.ilike.%${query}%,profiles.roll_number.ilike.%${query}%,loans.books.title.ilike.%${query}%`,
+    );
+  }
+
+  const { data: fines, count } = await request;
+  const matches = count ?? 0;
+  const lastPage = Math.max(1, Math.ceil(matches / PAGE_SIZE));
+
+  // Summing the page would under-report the moment there is a second page, so
+  // the headline total comes from every unpaid fine regardless of paging.
+  const { data: allUnpaid } = await supabase
+    .from("fines")
+    .select("amount")
+    .eq("is_paid", false)
+    .eq("is_waived", false)
+    .not("assessed_at", "is", null);
+
+  const total = (allUnpaid ?? []).reduce(
+    (sum, f) => sum + Number(f.amount ?? 0),
+    0,
+  );
+
+  // "Is there anything to search?" is a different question from "did this
+  // search match?" — the field stays put when a query comes back empty, or it
+  // would vanish along with the results and strand the librarian.
+  const hasFines = total > 0 || Boolean(fines?.length);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-1 flex-col gap-4">
+      {hasFines ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchField placeholder="Search member, roll number or book" />
+        </div>
+      ) : null}
+
       {!fines?.length ? (
         <Empty>
-          <EmptyTitle>No outstanding fines</EmptyTitle>
+          <EmptyTitle>
+            {query ? "No matches" : "No outstanding fines"}
+          </EmptyTitle>
           <EmptyDescription>
-            Fines appear here once a book is returned late or an overdue book is
-            brought to the counter.
+            {query
+              ? `No unpaid fine matches “${query}”.`
+              : "Fines appear here once a book is returned late or an overdue book is brought to the counter."}
           </EmptyDescription>
         </Empty>
       ) : (
         <>
           <p className="text-muted-foreground text-sm">
-            {fines.length} unpaid ·{" "}
+            {matches} unpaid
+            {query ? " matching" : ""} ·{" "}
             <span className="text-overdue font-medium">₹{total.toFixed(2)}</span> outstanding
           </p>
 
@@ -95,6 +153,42 @@ export default async function FinesPage() {
               </TableBody>
             </Table>
           </Card>
+
+          {lastPage > 1 ? (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                Page {pageNo} of {lastPage} · {matches} fines
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pageNo <= 1}
+                  nativeButton={false}
+                  render={
+                    <Link
+                      href={`/fines?${new URLSearchParams({ ...(query && { q: query }), page: String(pageNo - 1) })}`}
+                    >
+                      Previous
+                    </Link>
+                  }
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pageNo >= lastPage}
+                  nativeButton={false}
+                  render={
+                    <Link
+                      href={`/fines?${new URLSearchParams({ ...(query && { q: query }), page: String(pageNo + 1) })}`}
+                    >
+                      Next
+                    </Link>
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
         </>
       )}
     </div>

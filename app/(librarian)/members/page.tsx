@@ -16,6 +16,9 @@ import {
 } from "@/components/ui/table";
 import { requireLibrarian } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
+import type { MemberType } from "@/lib/types";
+
+import { RegistrationActions } from "./registration-actions";
 
 export const metadata = { title: "Members · Jeppiaar Educity Library" };
 
@@ -32,7 +35,9 @@ export default async function MembersPage(props: PageProps<"/members">) {
   const supabase = await createClient();
   let request = supabase
     .from("profiles")
-    .select("id, full_name, roll_number, department, member_type, account_status, is_active")
+    .select(
+      "id, full_name, roll_number, department, member_type, declared_member_type, account_status, is_active, rejection_reason",
+    )
     .eq("role", "member")
     .order("full_name")
     .limit(100);
@@ -133,7 +138,12 @@ export default async function MembersPage(props: PageProps<"/members">) {
                           <Badge className="bg-pending-subtle text-pending">Pending</Badge>
                         ) : null}
                         {member.account_status === "rejected" ? (
-                          <Badge className="bg-overdue-subtle text-overdue">Rejected</Badge>
+                          <Badge
+                            className="bg-overdue-subtle text-overdue"
+                            title={member.rejection_reason ?? undefined}
+                          >
+                            Rejected
+                          </Badge>
                         ) : null}
                         {!member.is_active && member.account_status === "active" ? (
                           <Badge variant="outline">Inactive</Badge>
@@ -144,11 +154,30 @@ export default async function MembersPage(props: PageProps<"/members">) {
                       {member.roll_number ?? "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {member.member_type === "staff" ? "Faculty" : "Student"}
+                      {(member.declared_member_type ?? member.member_type) === "staff"
+                        ? "Faculty"
+                        : "Student"}
+                      {member.account_status === "pending" ? (
+                        // Unverified until someone checks a college ID: a
+                        // false "faculty" claim would grant 5 books, not 3.
+                        <span className="block text-xs">claimed</span>
+                      ) : null}
                     </TableCell>
                     <TableCell className="tabular-nums">{d?.books_out ?? 0}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {owed > 0 ? (
+                      {/* A pending applicant has no loans and owes nothing, so
+                          the Due cell is free to carry the decision instead —
+                          which is what the separate Registrations screen was
+                          for. Checked per row, since the All tab mixes states. */}
+                      {member.account_status === "pending" ? (
+                        <RegistrationActions
+                          memberId={member.id}
+                          declaredType={
+                            (member.declared_member_type ??
+                              member.member_type) as MemberType | null
+                          }
+                        />
+                      ) : owed > 0 ? (
                         <span className="text-overdue font-medium">₹{owed.toFixed(2)}</span>
                       ) : (
                         <span className="text-muted-foreground">—</span>

@@ -260,17 +260,17 @@ This is the most-used screen in the system and the one the product is judged on.
 | M-6 | Deactivation is blocked while the member holds books. |
 | M-7 | The member list shows **active members** by default, with filters for pending and rejected. |
 
-### 4.3a Registrations list (librarian)
+### 4.3a Registrations (part of the Members screen)
 
-Approval normally happens at the counter (C-12 … C-16). This screen exists for browsing and housekeeping, **not** as a task queue.
+Approval normally happens at the counter (C-12 … C-16). Pending applicants are **not** a separate screen: a pending account is a member in a particular state, and the Members list already filters by state. A second screen showing the same rows was two doors to one room.
 
 | ID | Requirement |
 |---|---|
-| A-1 | A list of self-registered accounts, filterable by pending / rejected. |
+| A-1 | Self-registered accounts appear in the Members list under its **Pending** and **Rejected** filters. |
 | A-2 | **No count badge and no unread indicator** in the navigation. A large pending count is the expected steady state, not a backlog to clear. |
-| A-3 | The screen states plainly that pending members are approved when they first borrow, and that no action is required here. |
-| A-4 | Approve or reject from this screen too, for a librarian who prefers to work ahead. |
-| A-5 | Rejections are recorded with an optional reason and kept, not deleted. |
+| A-3 | A pending row shows its **claimed** member type, marked as unverified — a false "faculty" claim would grant 5 books instead of 3. |
+| A-4 | Approve or reject directly from the member row, for a librarian who prefers to work ahead. A pending applicant holds no books and owes nothing, so the row's Due column carries the decision instead. |
+| A-5 | Rejections are recorded with an optional reason and kept, not deleted. The reason is readable from the rejected row. |
 | A-6 | A rejection made in error can be reversed. |
 | A-7 | A registration whose roll number matches an existing member is flagged as a possible duplicate. |
 

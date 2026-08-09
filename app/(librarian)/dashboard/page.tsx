@@ -72,7 +72,7 @@ export default async function DashboardPage() {
       label: "Pending registrations",
       value: pending.count ?? 0,
       tone: (pending.count ?? 0) > 0 ? "pending" : "default",
-      hint: "Approved at the counter",
+      hint: "Approved at the counter, or under Members",
     },
   ];
 

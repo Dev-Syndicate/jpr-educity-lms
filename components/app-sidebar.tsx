@@ -8,7 +8,6 @@ import {
   ScanBarcodeIcon,
   SettingsIcon,
   ShieldCheckIcon,
-  UserRoundCheckIcon,
   UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -39,7 +38,6 @@ const COUNTER = [
 const MANAGE = [
   { title: "Books", url: "/books", icon: LibraryBigIcon },
   { title: "Members", url: "/members", icon: UsersIcon },
-  { title: "Registrations", url: "/registrations", icon: UserRoundCheckIcon },
   { title: "Librarians", url: "/staff", icon: ShieldCheckIcon },
 ];
 
