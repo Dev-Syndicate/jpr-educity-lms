@@ -45,10 +45,10 @@ import { searchMembers, type MemberHit } from "@/lib/actions/members";
 import { idleState, type ActionState } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+/** Completed operations only — see the effect that fills this. */
 type Recent = {
   id: number;
   what: string;
-  ok: boolean;
 };
 
 type Mode = "issue" | "return" | "renew";
@@ -150,9 +150,14 @@ export function CounterClient() {
     if (!nonce || nonce === seen.current || !latest.message) return;
     seen.current = nonce;
 
-    setRecent((prev) =>
-      [{ id: ++recentId.current, what: latest.message!, ok: latest.ok }, ...prev].slice(0, 10),
-    );
+    // Successes only. Recent is a record of what the library actually did —
+    // a mistyped barcode is a typo, not history, and logging it put the same
+    // red message on screen twice: once in the banner, once here.
+    if (latest.ok) {
+      setRecent((prev) =>
+        [{ id: ++recentId.current, what: latest.message! }, ...prev].slice(0, 10),
+      );
+    }
 
     if (latest.ok && member) {
       const data = latest.data as IssueResult | undefined;
@@ -340,13 +345,13 @@ function ModeSelector({
             key={m.value}
             value={m.value}
             className={cn(
-              "h-auto flex-col items-start gap-0.5 rounded-lg border px-4 py-3 text-left",
+              "h-auto flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left",
               isActive
                 ? "border-primary bg-primary/5 text-primary"
                 : "border-border bg-card",
             )}
           >
-            <span className="text-base font-semibold">{m.label}</span>
+            <span className="text-sm font-semibold">{m.label}</span>
             <span className="text-xs font-normal opacity-80">{m.caption}</span>
           </ToggleGroupItem>
         );
@@ -379,7 +384,7 @@ function ScanTarget({
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h3 className="text-lg font-semibold">{title}</h3>
+        <h3 className="font-semibold">{title}</h3>
         <p className="text-muted-foreground text-sm">{hint}</p>
       </div>
       <ScanInput
@@ -907,13 +912,7 @@ function RecentList({ items }: { items: Recent[] }) {
         <ul className="flex flex-col gap-2 text-sm">
           {items.map((item) => (
             <li key={item.id} className="flex gap-2">
-              <span
-                className={
-                  item.ok
-                    ? "bg-available mt-1.5 size-2 shrink-0 rounded-full"
-                    : "bg-overdue mt-1.5 size-2 shrink-0 rounded-full"
-                }
-              />
+              <span className="bg-available mt-1.5 size-2 shrink-0 rounded-full" />
               <span className="text-muted-foreground">{item.what}</span>
             </li>
           ))}

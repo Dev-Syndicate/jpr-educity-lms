@@ -3,11 +3,7 @@
 import { CheckCircle2Icon, XCircleIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
-import { useActionToast } from "@/components/use-action-toast";
-import { idleState, type ActionState } from "@/lib/types";
-
-/** Stable reference, so passing it never re-fires the toast effect. */
-const IDLE = idleState;
+import type { ActionState } from "@/lib/types";
 
 /**
  * Result of the last scan, sized to be read from a metre away.
@@ -19,11 +15,10 @@ export function ScanFeedback({ state }: { state: ActionState<unknown> }) {
   const settled = Boolean(state.message);
   const ok = state.ok;
 
-  // A failure also raises a toast. The banner alone assumes the librarian is
-  // looking at the screen; they are usually looking at the book, and a
-  // refused scan must not pass unnoticed. Successes stay banner-only — one
-  // toast per book at scanning speed would bury the screen.
-  useActionToast(ok ? IDLE : state);
+  // No toast here. The banner sits directly under the scan field and the
+  // failure beep already carries the message when the librarian is looking at
+  // the book — a toast would be the same words a third time, next to the
+  // banner and the Recent list.
 
   // A short beep. Librarians listen more than they read once they are in
   // rhythm, and the two tones are distinguishable without looking up.
@@ -58,7 +53,7 @@ export function ScanFeedback({ state }: { state: ActionState<unknown> }) {
 
   if (!settled) {
     return (
-      <div className="text-muted-foreground flex min-h-14 items-center justify-center rounded-lg border border-dashed text-sm">
+      <div className="text-muted-foreground flex min-h-11 items-center justify-center rounded-lg border border-dashed text-sm">
         Scan a book to begin.
       </div>
     );
@@ -71,14 +66,14 @@ export function ScanFeedback({ state }: { state: ActionState<unknown> }) {
       aria-live="assertive"
       className={
         ok
-          ? "bg-available-subtle text-available flex min-h-14 items-center gap-3 rounded-lg px-4 py-3"
-          : "bg-overdue-subtle text-overdue flex min-h-14 items-center gap-3 rounded-lg px-4 py-3"
+          ? "bg-available-subtle text-available flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm"
+          : "bg-overdue-subtle text-overdue flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm"
       }
     >
       {ok ? (
-        <CheckCircle2Icon className="size-5 shrink-0" />
+        <CheckCircle2Icon className="size-4 shrink-0" />
       ) : (
-        <XCircleIcon className="size-5 shrink-0" />
+        <XCircleIcon className="size-4 shrink-0" />
       )}
       <p className="leading-snug font-medium text-balance">{state.message}</p>
     </div>
