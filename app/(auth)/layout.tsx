@@ -45,8 +45,10 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
             <p className="text-gold text-xs font-semibold tracking-[0.3em] uppercase">
               Jeppiaar Educity
             </p>
-            <h2 className="text-brand-deep-foreground text-4xl font-semibold tracking-tight">
-              Library
+            {/* text-balance splits this across two even lines rather than
+                leaving "System" alone on the second. */}
+            <h2 className="text-brand-deep-foreground text-3xl font-semibold tracking-tight text-balance">
+              Library Management System
             </h2>
           </div>
           <p className="text-brand-deep-foreground/70 max-w-xs text-sm">
