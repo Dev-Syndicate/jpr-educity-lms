@@ -3,7 +3,7 @@ import { requireLibrarian } from "@/lib/dal";
 
 import { BookForm } from "../book-form";
 
-export const metadata = { title: "Add book · Jeppiaar Educity Library" };
+export const metadata = { title: "Add book" };
 
 export default async function NewBookPage() {
   await requireLibrarian();

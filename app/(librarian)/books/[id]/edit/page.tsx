@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { BookForm } from "../../book-form";
 
-export const metadata = { title: "Edit book · Jeppiaar Educity Library" };
+export const metadata = { title: "Edit book" };
 
 export default async function EditBookPage(props: PageProps<"/books/[id]/edit">) {
   await requireLibrarian();

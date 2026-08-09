@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { requireLibrarian } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Dashboard · Jeppiaar Educity Library" };
+export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   await requireLibrarian();

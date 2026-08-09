@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { RegisterForm } from "./register-form";
 
-export const metadata = { title: "Register · Jeppiaar Educity Library" };
+export const metadata = { title: "Register" };
 
 export default async function RegisterPage() {
   const user = await getCurrentUser();

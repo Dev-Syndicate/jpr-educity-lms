@@ -28,7 +28,7 @@ import type { MemberType } from "@/lib/types";
 
 import { RegistrationActions } from "./registration-actions";
 
-export const metadata = { title: "Members · Jeppiaar Educity Library" };
+export const metadata = { title: "Members" };
 
 const PAGE_SIZE = 25;
 

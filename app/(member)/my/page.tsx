@@ -9,7 +9,7 @@ import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { requireApprovedMember } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "My books · Jeppiaar Educity Library" };
+export const metadata = { title: "My books" };
 
 export default async function MyBooksPage() {
   const user = await requireApprovedMember();

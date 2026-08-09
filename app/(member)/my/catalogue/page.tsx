@@ -13,7 +13,7 @@ import {
 import { requireApprovedMember } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Catalogue · Jeppiaar Educity Library" };
+export const metadata = { title: "Catalogue" };
 
 export default async function CataloguePage(props: PageProps<"/my/catalogue">) {
   await requireApprovedMember();

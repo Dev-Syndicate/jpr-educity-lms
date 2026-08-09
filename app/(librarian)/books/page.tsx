@@ -25,7 +25,7 @@ import {
 import { requireLibrarian } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Books · Jeppiaar Educity Library" };
+export const metadata = { title: "Books" };
 
 const PAGE_SIZE = 25;
 

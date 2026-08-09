@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { requireUser } from "@/lib/dal";
 
-export const metadata = { title: "Account status · Jeppiaar Educity Library" };
+export const metadata = { title: "Account status" };
 
 /**
  * Where pending and rejected accounts land. A pending member can sign in but

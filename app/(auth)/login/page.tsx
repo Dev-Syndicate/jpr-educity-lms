@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { LoginForm } from "./login-form";
 
-export const metadata = { title: "Sign in · Jeppiaar Educity Library" };
+export const metadata = { title: "Sign in" };
 
 export default async function LoginPage(props: PageProps<"/login">) {
   const user = await getCurrentUser();

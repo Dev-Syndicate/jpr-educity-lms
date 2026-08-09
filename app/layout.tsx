@@ -16,8 +16,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jeppiaar Educity Library",
-  description: "Library management system for Jeppiaar Educity.",
+  title: {
+    // Each page sets only its own name; the suffix is appended here, so the
+    // product name is written once rather than in every page's metadata.
+    template: "%s · Jeppiaar Educity Library Management System",
+    default: "Jeppiaar Educity Library Management System",
+  },
+  // The title already says "Library Management System", so repeating it here
+  // wastes the one line a link preview gives us. Say what it does instead.
+  description:
+    "Issue, return and renew books at the counter. Members check their due dates and fines.",
+  // Without these, a chat app scrapes whatever it can infer. Setting them
+  // makes the shared-link card deliberate.
+  openGraph: {
+    title: "Jeppiaar Educity Library Management System",
+    description:
+      "Issue, return and renew books at the counter. Members check their due dates and fines.",
+    siteName: "Jeppiaar Educity Library Management System",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -11,7 +11,7 @@ import {
 import { requireApprovedMember } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "History · Jeppiaar Educity Library" };
+export const metadata = { title: "History" };
 
 export default async function HistoryPage() {
   const user = await requireApprovedMember();

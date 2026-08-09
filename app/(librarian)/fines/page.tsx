@@ -24,7 +24,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { FineActions } from "./fine-actions";
 
-export const metadata = { title: "Fines · Jeppiaar Educity Library" };
+export const metadata = { title: "Fines" };
 
 const PAGE_SIZE = 25;
 

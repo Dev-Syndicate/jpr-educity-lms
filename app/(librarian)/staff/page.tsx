@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LibrarianForm } from "./librarian-form";
 import { LibrarianStatusToggle } from "./librarian-status-toggle";
 
-export const metadata = { title: "Librarians · Jeppiaar Educity Library" };
+export const metadata = { title: "Librarians" };
 
 export default async function StaffPage() {
   const me = await requireLibrarian();
