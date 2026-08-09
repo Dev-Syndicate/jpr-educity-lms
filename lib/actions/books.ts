@@ -8,6 +8,7 @@ import { requireLibrarian } from "@/lib/dal";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { failure, success, type ActionState } from "@/lib/types";
+import { parseAccessionNumbers } from "@/lib/accession";
 
 const bookSchema = z.object({
   title: z.string().trim().min(1, "Title is required.").max(300),
@@ -77,11 +78,15 @@ export async function createBook(
     return failure("Check the details below.", z.flattenError(parsed.error).fieldErrors);
   }
 
-  const copies = Number(formData.get("copies") ?? 0);
-  if (!Number.isInteger(copies) || copies < 0 || copies > 200) {
-    return failure("Number of copies must be between 0 and 200.", {
-      copies: ["Enter a number between 0 and 200."],
-    });
+  // Optional: a title can be catalogued before its copies arrive.
+  const rawCopies = String(formData.get("accessionNumbers") ?? "").trim();
+  let numbers: string[] = [];
+  if (rawCopies) {
+    const copies = parseAccessionNumbers(rawCopies);
+    if (copies.error || !copies.numbers) {
+      return failure(copies.error!, { accessionNumbers: [copies.error!] });
+    }
+    numbers = copies.numbers;
   }
 
   const supabase = await createClient();
@@ -100,9 +105,12 @@ export async function createBook(
     return failure(rpcErrorMessage(error, "Could not save this book."));
   }
 
-  if (copies > 0) {
-    const added = await addCopiesFor(data.id, copies);
-    if (added) return failure(added);
+  // The book row is already committed. If a copy clashes, still go to the
+  // book — its copies panel shows exactly what landed, and the number can be
+  // corrected there. Returning a failure here would strand the librarian on a
+  // form for a book that now exists, so re-submitting would fail on the ISBN.
+  if (numbers.length) {
+    await addCopiesFor(data.id, numbers);
   }
 
   revalidatePath("/books");
@@ -140,19 +148,24 @@ export async function updateBook(
   return success(undefined, "Saved.");
 }
 
-/** Generate `count` accession numbers and insert copies. Returns an error string. */
-async function addCopiesFor(bookId: string, count: number): Promise<string | null> {
+async function addCopiesFor(
+  bookId: string,
+  numbers: string[],
+): Promise<string | null> {
   const supabase = await createClient();
 
-  const rows: { book_id: string; accession_number: string }[] = [];
-  for (let i = 0; i < count; i++) {
-    const { data, error } = await supabase.rpc("next_accession_number");
-    if (error || !data) return "Could not generate accession numbers.";
-    rows.push({ book_id: bookId, accession_number: data });
-  }
+  const { error } = await supabase
+    .from("book_copies")
+    .insert(numbers.map((accession_number) => ({ book_id: bookId, accession_number })));
 
-  const { error } = await supabase.from("book_copies").insert(rows);
-  return error ? rpcErrorMessage(error, "Could not add copies.") : null;
+  if (!error) return null;
+
+  // The accession number is typed by hand, so a clash is an ordinary typo and
+  // deserves better than a raw 23505.
+  if (error.code === "23505") {
+    return "One of those accession numbers is already used by another copy.";
+  }
+  return rpcErrorMessage(error, "Could not add copies.");
 }
 
 export async function addCopies(
@@ -162,20 +175,19 @@ export async function addCopies(
   await requireLibrarian();
 
   const bookId = String(formData.get("bookId") ?? "");
-  const count = Number(formData.get("count") ?? 0);
-
   if (!z.uuid().safeParse(bookId).success) return failure("That book no longer exists.");
-  if (!Number.isInteger(count) || count < 1 || count > 200) {
-    return failure("Enter a number between 1 and 200.", {
-      count: ["Between 1 and 200."],
-    });
+
+  const parsed = parseAccessionNumbers(String(formData.get("accessionNumbers") ?? ""));
+  if (parsed.error || !parsed.numbers) {
+    return failure(parsed.error!, { accessionNumbers: [parsed.error!] });
   }
 
-  const error = await addCopiesFor(bookId, count);
-  if (error) return failure(error);
+  const error = await addCopiesFor(bookId, parsed.numbers);
+  if (error) return failure(error, { accessionNumbers: [error] });
 
+  const created = parsed.numbers.length;
   refresh();
-  return success({ created: count }, `Added ${count} cop${count === 1 ? "y" : "ies"}.`);
+  return success({ created }, `Added ${created} cop${created === 1 ? "y" : "ies"}.`);
 }
 
 export async function setCopyStatus(
@@ -230,7 +242,9 @@ export async function markCopyLost(
   await requireLibrarian();
 
   const accession = String(formData.get("accessionNumber") ?? "").trim().toUpperCase();
-  if (!/^JPR-\d{5}$/.test(accession)) return failure("Invalid accession number.");
+  if (!accession || accession.length > 50) {
+    return failure("Invalid accession number.");
+  }
 
   const supabase = await createClient();
   const { error } = await supabase

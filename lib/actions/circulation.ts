@@ -8,11 +8,16 @@ import { rpcErrorMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { failure, success, type ActionState } from "@/lib/types";
 
+// Accession numbers are whatever is printed on the copy, so the only rules
+// are non-blank and bounded. Whether a number exists is the database's
+// question, and its answer names the copy — far more useful than a format
+// complaint about a barcode that scanned fine.
 const accession = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(/^JPR-\d{5}$/, "Accession numbers look like JPR-00123.");
+  .min(1, "Scan or type an accession number.")
+  .max(50, "That does not look like an accession number.");
 
 const uuid = z.uuid("Select a member first.");
 

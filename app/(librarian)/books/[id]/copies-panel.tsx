@@ -13,7 +13,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Empty, EmptyTitle } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -64,30 +69,33 @@ export function CopiesPanel({
       <CardHeader>
         <CardTitle>Copies</CardTitle>
         <CardDescription>
-          {copies.length} physical cop{copies.length === 1 ? "y" : "ies"}. Accession
-          numbers are generated automatically.
+          {copies.length} physical cop{copies.length === 1 ? "y" : "ies"}. Enter the
+          accession number printed on each book.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
         <FormFeedback state={latest} />
 
-        <form action={addAction} className="flex flex-wrap items-end gap-3">
+        <form action={addAction} className="flex flex-col gap-2">
           <input type="hidden" name="bookId" value={bookId} />
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="count" className="text-sm font-medium">
-              Add copies
-            </label>
-            <Input
-              id="count"
-              name="count"
-              inputMode="numeric"
-              defaultValue="1"
-              className="w-28"
+          <Field data-invalid={latest.fieldErrors?.accessionNumbers ? true : undefined}>
+            <FieldLabel htmlFor="accessionNumbers">Add copies</FieldLabel>
+            <Textarea
+              id="accessionNumbers"
+              name="accessionNumbers"
+              rows={2}
+              placeholder="JPR-00124&#10;JPR-00125"
+              className="font-mono"
+              aria-invalid={latest.fieldErrors?.accessionNumbers ? true : undefined}
             />
-          </div>
-          <SubmitButton pending={addPending} variant="outline">
-            Add
+            <FieldDescription>
+              One per line, or separated by commas. Any format, as long as each is
+              unique.
+            </FieldDescription>
+          </Field>
+          <SubmitButton pending={addPending} variant="outline" className="self-start">
+            Add copies
           </SubmitButton>
         </form>
 

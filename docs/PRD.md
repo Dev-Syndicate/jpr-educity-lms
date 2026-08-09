@@ -242,8 +242,8 @@ This is the most-used screen in the system and the one the product is judged on.
 |---|---|
 | B-1 | Add, edit and view books with title, author, ISBN, publisher, year and category. |
 | B-2 | Search the catalogue by title, author or ISBN. |
-| B-3 | A book has one or more **physical copies**, each with a unique accession number in the format `JPR-00123`. |
-| B-4 | Add copies in bulk, with accession numbers generated automatically. |
+| B-3 | A book has one or more **physical copies**, each identified by the **accession number already printed on it**. Any format is accepted; it must be unique across the library. |
+| B-4 | Add copies by entering the accession number from each physical book. Several can be entered at once. The system never invents a number: an invented one would not match the label on the shelf.
 | B-5 | Mark a copy as lost or damaged. A lost copy's open loan is closed and its fine frozen. |
 | B-6 | A copy currently on loan cannot be retired or deleted. |
 | B-7 | Book detail shows every copy, its status, and who currently holds it. |
@@ -347,7 +347,7 @@ Approval normally happens at the counter (C-12 … C-16). Pending applicants are
 - …when a student who registered online comes to borrow for the first time, I search their roll number, check their ID card against what they entered, and approve and issue in one step — without leaving the counter screen.
 
 **As a librarian managing the library…**
-- …I add a new title and create five copies at once, with accession numbers generated for me.
+- …I add a new title and enter the accession numbers already written on its five copies.
 - …I register a new student at the start of term and hand them their login.
 - …I check which books are overdue so I can follow up.
 - …I waive a fine for a student on medical leave, recording why.

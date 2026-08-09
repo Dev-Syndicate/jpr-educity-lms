@@ -164,7 +164,7 @@
       <g>
         <rect x="46" y="272" width="212" height="60" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
         <text x="152" y="297" text-anchor="middle" font-size="14" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">book_copies</text>
-        <text x="152" y="316" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">physical copy · JPR-00123</text>
+        <text x="152" y="316" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">physical copy · its own serial</text>
       </g>
 
       <!-- loans -->
@@ -461,7 +461,7 @@
     <table>
       <tr><td class="col">id<span class="pk">PK</span></td><td class="typ">uuid</td><td class="desc"></td></tr>
       <tr><td class="col">book_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ books</td></tr>
-      <tr><td class="col">accession_number<span class="uq">UQ</span></td><td class="typ">text</td><td class="desc">the barcode · <code>JPR-00123</code></td></tr>
+      <tr><td class="col">accession_number<span class="uq">UQ</span></td><td class="typ">text</td><td class="desc">the serial printed on the copy, entered by the librarian. Unique, any format.</td></tr>
       <tr><td class="col">status</td><td class="typ">enum</td><td class="desc">available · issued · lost · damaged</td></tr>
       <tr><td class="col">condition</td><td class="typ">enum</td><td class="desc">new · good · fair · poor</td></tr>
       <tr><td class="col">shelf_location</td><td class="typ">text</td><td class="desc">where to find it</td></tr>

@@ -130,18 +130,20 @@ export function BookForm({ book }: { book?: BookValues }) {
         </Field>
 
         {!editing ? (
-          <Field data-invalid={state.fieldErrors?.copies ? true : undefined}>
-            <FieldLabel htmlFor="copies">Copies to create</FieldLabel>
-            <Input
-              id="copies"
-              name="copies"
-              inputMode="numeric"
-              defaultValue="1"
-              aria-invalid={state.fieldErrors?.copies ? true : undefined}
+          <Field data-invalid={state.fieldErrors?.accessionNumbers ? true : undefined}>
+            <FieldLabel htmlFor="accessionNumbers">Accession numbers</FieldLabel>
+            <Textarea
+              id="accessionNumbers"
+              name="accessionNumbers"
+              rows={3}
+              placeholder="JPR-00124&#10;JPR-00125"
+              className="font-mono"
+              aria-invalid={state.fieldErrors?.accessionNumbers ? true : undefined}
             />
-            <FieldError errors={fieldErrors(state, "copies")} />
+            <FieldError errors={fieldErrors(state, "accessionNumbers")} />
             <FieldDescription>
-              Accession numbers (JPR-00123) are generated automatically.
+              The number printed on each physical copy — one per line, or separated
+              by commas. Leave blank to add copies later.
             </FieldDescription>
           </Field>
         ) : null}
