@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { FormFeedback, SubmitButton } from "@/components/form-feedback";
+import { FormFeedback, SubmitButton, fieldErrors } from "@/components/form-feedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ import { Empty, EmptyTitle } from "@/components/ui/empty";
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldLabel,
 } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,9 +61,11 @@ export function CopiesPanel({
   );
   const [lostState, lostAction, lostPending] = useActionState(markCopyLost, idleState);
 
-  const latest = [addState, statusState, lostState].reduce((a, b) =>
-    (b.nonce ?? 0) > (a.nonce ?? 0) ? b : a,
-  );
+  // Row actions announce themselves through the toast only. An inline banner
+  // above the table pushed every row down on each click, and said the same
+  // thing the toast was already saying.
+  const rowResult =
+    (statusState.nonce ?? 0) > (lostState.nonce ?? 0) ? statusState : lostState;
 
   return (
     <Card>
@@ -75,11 +78,16 @@ export function CopiesPanel({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        <FormFeedback state={latest} />
+        {/* Both toast-only: the add form shows its own error against the
+            field, and a row action needs no banner above the table. */}
+        <FormFeedback state={rowResult} toastOnly />
+        <FormFeedback state={addState} toastOnly />
 
         <form action={addAction} className="flex flex-col gap-2">
           <input type="hidden" name="bookId" value={bookId} />
-          <Field data-invalid={latest.fieldErrors?.accessionNumbers ? true : undefined}>
+          {/* Bound to addState, not the newest action of any kind: a failed
+              Mark lost must not mark this textarea invalid. */}
+          <Field data-invalid={addState.fieldErrors?.accessionNumbers ? true : undefined}>
             <FieldLabel htmlFor="accessionNumbers">Add copies by serial no.</FieldLabel>
             <Textarea
               id="accessionNumbers"
@@ -87,8 +95,9 @@ export function CopiesPanel({
               rows={2}
               placeholder="JPR-00124&#10;JPR-00125"
               className="font-mono"
-              aria-invalid={latest.fieldErrors?.accessionNumbers ? true : undefined}
+              aria-invalid={addState.fieldErrors?.accessionNumbers ? true : undefined}
             />
+            <FieldError errors={fieldErrors(addState, "accessionNumbers")} />
             <FieldDescription>
               One per line, or separated by commas. Any format, as long as each is
               unique.
