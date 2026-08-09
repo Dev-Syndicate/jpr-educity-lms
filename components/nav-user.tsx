@@ -4,8 +4,13 @@ import { LogOutIcon } from "lucide-react";
 import { useTransition } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { SidebarMenuButton } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { signOut } from "@/lib/actions/auth";
 import type { CurrentUser } from "@/lib/types";
 
@@ -29,29 +34,41 @@ export function NavUser({ user }: { user: CurrentUser }) {
   const [pending, startTransition] = useTransition();
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 px-1">
-        <Avatar className="size-8 rounded-lg">
-          <AvatarFallback className="rounded-lg text-xs">
-            {initials(user.fullName)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="grid flex-1 text-left leading-tight">
-          <span className="truncate text-sm font-medium">{user.fullName}</span>
-          <span className="text-sidebar-foreground/60 truncate text-xs">
-            {user.email}
-          </span>
-        </div>
+    <div className="flex items-center gap-2 px-1">
+      <Avatar className="size-8 shrink-0 rounded-lg">
+        <AvatarFallback className="rounded-lg text-xs">
+          {initials(user.fullName)}
+        </AvatarFallback>
+      </Avatar>
+
+      <div className="grid min-w-0 flex-1 text-left leading-tight">
+        <span className="truncate text-sm font-medium">{user.fullName}</span>
+        <span className="text-sidebar-foreground/60 truncate text-xs">
+          {user.email}
+        </span>
       </div>
 
-      <SidebarMenuButton
-        onClick={() => startTransition(() => signOut())}
-        disabled={pending}
-        className="border-sidebar-border justify-center border"
-      >
-        {pending ? <Spinner /> : <LogOutIcon />}
-        <span>Sign out</span>
-      </SidebarMenuButton>
+      {/* Icon only, so it sits on the same row as the identity. The label
+          lives in aria-label and the tooltip rather than on screen — a
+          door-with-arrow is well understood, and this is the only action
+          here. */}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => startTransition(() => signOut())}
+              disabled={pending}
+              aria-label="Sign out"
+              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground shrink-0"
+            >
+              {pending ? <Spinner /> : <LogOutIcon />}
+            </Button>
+          }
+        />
+        <TooltipContent side="right">Sign out</TooltipContent>
+      </Tooltip>
     </div>
   );
 }
