@@ -80,11 +80,17 @@ export function MemberSidebar({
         >
           {/* Glyph, for the same reason as the librarian sidebar: --sidebar is
               the tile's own green. */}
-          <BrandMark size={26} variant="glyph" className="shrink-0" />
-          {/* One line at text-sm, as on the librarian side — this sidebar is
-              narrower still, so text-base would truncate the name. */}
-          <span className="min-w-0 truncate text-sm leading-snug font-semibold">
-            Jeppiaar Educity LMS
+          <BrandMark size={32} variant="glyph" className="shrink-0" />
+          {/* Stacked name over caption, as on the librarian side: two lines are
+              what buy the name text-base at this width. See the note there for
+              why "Library" is a caption rather than a second wordmark line. */}
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-base leading-snug font-semibold">
+              Jeppiaar Educity
+            </span>
+            <span className="text-sidebar-foreground/70 truncate text-xs leading-tight font-medium tracking-[0.14em] uppercase">
+              Library
+            </span>
           </span>
         </Link>
       </SidebarHeader>

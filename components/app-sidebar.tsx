@@ -153,14 +153,24 @@ export function AppSidebar({
           {/* Glyph: --sidebar is the same green as the tile's own ground, so
               the tile variant would either disappear into it or, if that token
               changed, show up as a square nobody asked for. */}
-          <BrandMark size={26} variant="glyph" className="shrink-0" />
-          {/* One line, not an eyebrow over a name: beside the glyph there is
-              only ~10rem left in a 15rem sidebar, and "Jeppiaar Educity" over
-              a bare "LMS" left the second line dangling. text-sm, not
-              text-base — at this width the full name would otherwise
-              truncate, and a clipped wordmark is worse than a smaller one. */}
-          <span className="min-w-0 truncate text-sm leading-snug font-semibold">
-            Jeppiaar Educity LMS
+          <BrandMark size={32} variant="glyph" className="shrink-0" />
+          {/* Two lines, so the name can hold text-base inside the ~10rem left
+              beside the glyph — on one line that width forces text-sm, and a
+              larger single line would truncate to "Jeppiaar Educi…".
+
+              An earlier pass set this on one line because "Jeppiaar Educity"
+              over a bare "LMS" left the second line dangling. That still
+              applies to a plain stack, so "LMS" is not a bare repeat of the
+              wordmark here: it is demoted to a caption — smaller, lighter,
+              wide-tracked — which reads as a descriptor of the name above it
+              rather than as an orphaned third word. */}
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-base leading-snug font-semibold">
+              Jeppiaar Educity
+            </span>
+            <span className="text-sidebar-foreground/70 truncate text-xs leading-tight font-medium tracking-[0.14em] uppercase">
+              Library
+            </span>
           </span>
         </Link>
       </SidebarHeader>
