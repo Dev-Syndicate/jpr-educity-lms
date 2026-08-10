@@ -1,4 +1,4 @@
-import { PlusIcon, SearchXIcon, UsersIcon } from "lucide-react";
+import { PlusIcon, SearchXIcon, UploadIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 
 import { ListPagination } from "@/components/list-pagination";
@@ -114,6 +114,16 @@ export default async function MembersPage(props: PageProps<"/members">) {
         <SearchField placeholder="Search name or roll number" />
         <Button
           className="ml-auto"
+          variant="outline"
+          nativeButton={false}
+          render={
+            <Link href="/members/import">
+              <UploadIcon />
+              Import
+            </Link>
+          }
+        />
+        <Button
           nativeButton={false}
           render={
             <Link href="/members/new">

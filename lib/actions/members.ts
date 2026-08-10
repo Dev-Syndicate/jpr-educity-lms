@@ -60,6 +60,12 @@ export type MemberHit = {
   rollNumber: string | null;
   department: string | null;
   email: string;
+  phone: string | null;
+  /**
+   * Short-lived signed URL, or null. The bucket is private, so this cannot be
+   * a bare path — see the signing below.
+   */
+  photoUrl: string | null;
   memberType: MemberType | null;
   declaredMemberType: MemberType | null;
   accountStatus: AccountStatus;
@@ -85,7 +91,7 @@ export async function searchMembers(query: string): Promise<MemberHit[]> {
     supabase
       .from("profiles")
       .select(
-        "id, full_name, roll_number, department, email, member_type, declared_member_type, account_status, is_active",
+        "id, full_name, roll_number, department, email, phone, photo_path, member_type, declared_member_type, account_status, is_active",
       )
       .eq("role", "member")
       .or(`full_name.ilike.%${q}%,roll_number.ilike.%${q}%`)
@@ -104,16 +110,35 @@ export async function searchMembers(query: string): Promise<MemberHit[]> {
 
   if (!rows?.length) return [];
 
-  // Per-member loan counts and dues in one round trip rather than N.
-  const { data: dues } = await supabase
-    .from("v_member_dues")
-    .select("member_id, books_out, total_outstanding")
-    .in(
-      "member_id",
-      rows.map((r) => r.id),
-    );
+  const paths = rows.map((r) => r.photo_path).filter((p) => p !== null);
+
+  // Both depend on `rows`, so neither can start earlier — but they must not
+  // wait on each other either.
+  const [{ data: dues }, signed] = await Promise.all([
+    // Per-member loan counts and dues in one round trip rather than N.
+    supabase
+      .from("v_member_dues")
+      .select("member_id, books_out, total_outstanding")
+      .in(
+        "member_id",
+        rows.map((r) => r.id),
+      ),
+    // createSignedUrls, not createSignedUrl in a loop: 20 hits would be 20
+    // round trips to sign, on the keystroke path. Skipped entirely when
+    // nobody in the result set has a photo.
+    paths.length
+      ? supabase.storage.from("member-photos").createSignedUrls(paths, 60 * 10)
+      : Promise.resolve({ data: null }),
+  ]);
 
   const byMember = new Map(dues?.map((d) => [d.member_id, d]) ?? []);
+
+  // Keyed by path, since that is all the signing response echoes back.
+  const urlByPath = new Map(
+    signed.data
+      ?.filter((s) => s.path && s.signedUrl)
+      .map((s) => [s.path as string, s.signedUrl]) ?? [],
+  );
 
   return rows.map((row) => {
     const d = byMember.get(row.id);
@@ -125,6 +150,8 @@ export async function searchMembers(query: string): Promise<MemberHit[]> {
       rollNumber: row.roll_number,
       department: row.department,
       email: row.email,
+      phone: row.phone,
+      photoUrl: row.photo_path ? (urlByPath.get(row.photo_path) ?? null) : null,
       memberType: type,
       declaredMemberType: row.declared_member_type,
       accountStatus: row.account_status,
@@ -497,4 +524,208 @@ export async function approveMember(
 
   refresh();
   return success(undefined, `${data.member_name} can now borrow books.`);
+}
+
+// ---------------------------------------------------------------------------
+// Bulk import
+// ---------------------------------------------------------------------------
+
+/** Column names the template uses. Only the first four are required. */
+const IMPORT_COLUMNS = [
+  "full_name",
+  "email",
+  "roll_number",
+  "member_type",
+  "department",
+  "phone",
+  "address",
+] as const;
+
+export type ImportFailure = {
+  /** 1-based line in the file as opened in a spreadsheet, header included. */
+  line: number;
+  name: string;
+  reason: string;
+};
+
+export type ImportResult = {
+  created: number;
+  failures: ImportFailure[];
+};
+
+const importRowSchema = z.object({
+  full_name: z.string().trim().min(1, "Name is required.").max(200),
+  email: z.email("Not a valid email address.").trim().toLowerCase(),
+  roll_number: z.string().trim().min(1, "Roll or staff number is required.").max(50),
+  member_type: z
+    .string()
+    .trim()
+    .toLowerCase()
+    // "Student"/"Faculty" is what a librarian types; both spellings map on.
+    .transform((v) => (v === "faculty" ? "staff" : v))
+    .pipe(z.enum(["student", "staff"], "Must be student or faculty.")),
+  department: z.string().trim().max(120).optional(),
+  phone: z.string().trim().max(20).optional(),
+  address: z.string().trim().max(500).optional(),
+});
+
+/**
+ * Create many members from a CSV file.
+ *
+ * PARTIAL BY DESIGN. Rows are independent: a duplicate email on line 14 must
+ * not cost the other 199 rows, so each is attempted on its own and the
+ * failures come back with line numbers to fix and re-upload.
+ *
+ * Sequential, not Promise.all: these are auth-server calls behind the
+ * service-role key, and firing 200 at once invites rate limiting — which
+ * would fail rows that are perfectly valid and make the report a lie.
+ */
+export async function importMembers(
+  _prev: ActionState<ImportResult>,
+  formData: FormData,
+): Promise<ActionState<ImportResult>> {
+  // Never skip: this action wraps the service-role key.
+  await requireLibrarian();
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return failure("Choose a CSV file to import.");
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    return failure("That file is larger than 2 MB. Split it and import in parts.");
+  }
+
+  const password = String(formData.get("password") ?? "").trim();
+  if (password.length < 8) {
+    return failure("The temporary password must be at least 8 characters.", {
+      password: ["Use at least 8 characters."],
+    });
+  }
+
+  const { parseCsvRows } = await import("@/lib/csv");
+  const { headers, rows } = parseCsvRows(await file.text());
+
+  if (!rows.length) {
+    return failure("That file has no rows below the header.");
+  }
+
+  if (rows.length > 500) {
+    return failure("Import at most 500 members at a time.");
+  }
+
+  // A missing required column is a mistake about the whole file, not about a
+  // row, so it stops the import rather than failing 200 rows identically.
+  const missing = IMPORT_COLUMNS.slice(0, 4).filter((c) => !headers.includes(c));
+  if (missing.length) {
+    return failure(
+      `The file is missing the ${missing.join(", ")} column${missing.length > 1 ? "s" : ""}. Download the template and match its headers.`,
+    );
+  }
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+
+  const failures: ImportFailure[] = [];
+  let created = 0;
+
+  // Catch duplicates WITHIN the file. Two rows sharing an email would
+  // otherwise show as a confusing "already registered" on the second.
+  const seenEmails = new Set<string>();
+  const seenRolls = new Set<string>();
+
+  for (const [index, row] of rows.entries()) {
+    // +2: one for the header, one because spreadsheets count from 1.
+    const line = index + 2;
+    const label = row.full_name || row.email || `row ${line}`;
+
+    const parsed = importRowSchema.safeParse(row);
+    if (!parsed.success) {
+      failures.push({
+        line,
+        name: label,
+        reason: parsed.error.issues[0]?.message ?? "Invalid row.",
+      });
+      continue;
+    }
+
+    const data = parsed.data;
+
+    if (seenEmails.has(data.email)) {
+      failures.push({ line, name: label, reason: "This email appears earlier in the file." });
+      continue;
+    }
+    if (seenRolls.has(data.roll_number.toLowerCase())) {
+      failures.push({
+        line,
+        name: label,
+        reason: "This roll number appears earlier in the file.",
+      });
+      continue;
+    }
+
+    const { data: createdUser, error: authError } = await admin.auth.admin.createUser({
+      email: data.email,
+      password,
+      email_confirm: true, // no SMTP configured
+      user_metadata: { full_name: data.full_name },
+    });
+
+    if (authError || !createdUser?.user) {
+      failures.push({
+        line,
+        name: label,
+        reason: authError
+          ? authErrorMessage(authError)
+          : "Could not create this account.",
+      });
+      continue;
+    }
+
+    const { error } = await admin
+      .from("profiles")
+      .update({
+        full_name: data.full_name,
+        email: data.email,
+        roll_number: data.roll_number,
+        member_type: data.member_type,
+        department: data.department || null,
+        phone: data.phone || null,
+        address: data.address || null,
+        role: "member",
+        account_status: "active",
+        is_active: true,
+      })
+      .eq("id", createdUser.user.id);
+
+    if (error) {
+      // Roll back, or the email is claimed by a half-made account that the
+      // librarian cannot fix by re-importing the corrected row.
+      await admin.auth.admin.deleteUser(createdUser.user.id);
+      failures.push({
+        line,
+        name: label,
+        reason:
+          error.code === "23505"
+            ? "That roll number is already registered."
+            : rpcErrorMessage(error, "Could not save this member."),
+      });
+      continue;
+    }
+
+    seenEmails.add(data.email);
+    seenRolls.add(data.roll_number.toLowerCase());
+    created += 1;
+  }
+
+  revalidatePath("/members");
+
+  const summary =
+    failures.length === 0
+      ? `Imported ${created} member${created === 1 ? "" : "s"}.`
+      : `Imported ${created} of ${rows.length}. ${failures.length} row${failures.length === 1 ? "" : "s"} could not be created.`;
+
+  // Not a failure() even when some rows fail: the good rows really were
+  // created, and reporting it as an error would suggest otherwise.
+  return success({ created, failures }, summary);
 }
