@@ -10,6 +10,7 @@ import { failure, success, type ActionState } from "@/lib/types";
 
 const schema = z.object({
   loanPeriodDays: z.coerce.number().int().min(1).max(365),
+  loanPeriodDaysStaff: z.coerce.number().int().min(1).max(365),
   finePerDay: z.coerce.number().min(0).max(10000),
   maxRenewals: z.coerce.number().int().min(0).max(20),
   maxBooksStudent: z.coerce.number().int().min(0).max(100),
@@ -26,6 +27,7 @@ export async function updateSettings(
 
   const parsed = schema.safeParse({
     loanPeriodDays: formData.get("loanPeriodDays"),
+    loanPeriodDaysStaff: formData.get("loanPeriodDaysStaff"),
     finePerDay: formData.get("finePerDay"),
     maxRenewals: formData.get("maxRenewals"),
     maxBooksStudent: formData.get("maxBooksStudent"),
@@ -43,6 +45,7 @@ export async function updateSettings(
     .from("settings")
     .update({
       loan_period_days: parsed.data.loanPeriodDays,
+      loan_period_days_staff: parsed.data.loanPeriodDaysStaff,
       fine_per_day: parsed.data.finePerDay,
       max_renewals: parsed.data.maxRenewals,
       max_books_student: parsed.data.maxBooksStudent,

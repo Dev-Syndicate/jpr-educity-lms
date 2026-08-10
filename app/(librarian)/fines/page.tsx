@@ -64,18 +64,24 @@ export default async function FinesPage(props: PageProps<"/fines">) {
     );
   }
 
-  const { data: fines, count } = await request;
+  // The page of rows and the headline total are independent, so they go
+  // together rather than one after the other — a serial pair here is two
+  // round trips to Singapore on every load.
+  //
+  // Summing the page would under-report the moment there is a second page, so
+  // the total comes from every unpaid fine regardless of paging.
+  const [{ data: fines, count }, { data: allUnpaid }] = await Promise.all([
+    request,
+    supabase
+      .from("fines")
+      .select("amount")
+      .eq("is_paid", false)
+      .eq("is_waived", false)
+      .not("assessed_at", "is", null),
+  ]);
+
   const matches = count ?? 0;
   const lastPage = Math.max(1, Math.ceil(matches / PAGE_SIZE));
-
-  // Summing the page would under-report the moment there is a second page, so
-  // the headline total comes from every unpaid fine regardless of paging.
-  const { data: allUnpaid } = await supabase
-    .from("fines")
-    .select("amount")
-    .eq("is_paid", false)
-    .eq("is_waived", false)
-    .not("assessed_at", "is", null);
 
   const total = (allUnpaid ?? []).reduce(
     (sum, f) => sum + Number(f.amount ?? 0),

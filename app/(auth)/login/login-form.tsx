@@ -60,8 +60,11 @@ export function LoginForm({ next }: { next?: string }) {
           <FieldError
             errors={state.fieldErrors?.password?.map((m) => ({ message: m }))}
           />
+          {/* Still the counter, and now that is a real answer: a librarian can
+              issue a new temporary password from the member's page. There is
+              no emailed reset link because no SMTP is configured. */}
           <FieldDescription>
-            Forgotten it? Ask at the library counter.
+            Forgotten it? Ask at the library counter for a new one.
           </FieldDescription>
         </Field>
 

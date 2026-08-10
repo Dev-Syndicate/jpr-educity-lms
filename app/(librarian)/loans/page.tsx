@@ -46,7 +46,15 @@ export default async function LoansPage(props: PageProps<"/loans">) {
   const from = (pageNo - 1) * PAGE_SIZE;
 
   const supabase = await createClient();
-  const { data: today } = await supabase.rpc("today_ist");
+
+  // Started now, awaited only where it is needed. The main query below does
+  // not depend on it unless the "due today" tab is active, so on every other
+  // tab this resolves in parallel with the rows instead of delaying them.
+  //
+  // It is still needed on every tab for the "due today" COUNT in the tab
+  // strip — hence a promise held here rather than a value fetched later.
+  const todayRequest = supabase.rpc("today_ist");
+  const todayFor = async () => (await todayRequest).data ?? null;
 
   let request = supabase
     .from("v_loans_with_fine")
@@ -59,7 +67,10 @@ export default async function LoansPage(props: PageProps<"/loans">) {
     .range(from, from + PAGE_SIZE - 1);
 
   if (active === "overdue") request = request.eq("is_overdue", true);
-  if (active === "due-today" && today) request = request.eq("due_date", today);
+  if (active === "due-today") {
+    const today = await todayFor();
+    if (today) request = request.eq("due_date", today);
+  }
 
   if (query) {
     request = request.or(
@@ -78,7 +89,10 @@ export default async function LoansPage(props: PageProps<"/loans">) {
       .select("id", { count: "exact", head: true })
       .is("returned_at", null);
     if (key === "overdue") counter = counter.eq("is_overdue", true);
-    if (key === "due-today" && today) counter = counter.eq("due_date", today);
+    if (key === "due-today") {
+      const today = await todayFor();
+      if (today) counter = counter.eq("due_date", today);
+    }
     if (query) {
       counter = counter.or(
         `book_title.ilike.%${query}%,accession_number.ilike.%${query}%,member_name.ilike.%${query}%,member_roll_number.ilike.%${query}%`,
@@ -116,7 +130,7 @@ export default async function LoansPage(props: PageProps<"/loans">) {
             />
           ))}
         </div>
-        <SearchField placeholder="Search book, serial no. or member" />
+        <SearchField placeholder="Search book, accession no. or member" />
       </div>
 
       {!loans?.length ? (

@@ -3,6 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { LoanActions } from "@/components/loan-actions";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +28,9 @@ import {
 } from "@/components/ui/table";
 import { requireLibrarian } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
+import { initials } from "@/lib/utils";
 
+import { MemberPasswordReset } from "./member-password-reset";
 import { MemberStatusToggle } from "./member-status-toggle";
 
 export default async function MemberDetailPage(props: PageProps<"/members/[id]">) {
@@ -34,12 +41,23 @@ export default async function MemberDetailPage(props: PageProps<"/members/[id]">
   const { data: member } = await supabase
     .from("profiles")
     .select(
-      "id, full_name, email, roll_number, department, phone, member_type, account_status, is_active",
+      "id, full_name, email, roll_number, department, phone, address, photo_path, member_type, account_status, is_active",
     )
     .eq("id", id)
     .maybeSingle();
 
   if (!member) notFound();
+
+  // The bucket is private, so the image needs a signed URL. Short-lived by
+  // design: the page is server-rendered on every visit, so a long expiry would
+  // only widen the window in which a copied URL still works.
+  const photoUrl = member.photo_path
+    ? (
+        await supabase.storage
+          .from("member-photos")
+          .createSignedUrl(member.photo_path, 60 * 10)
+      ).data?.signedUrl ?? null
+    : null;
 
   const [{ data: open }, { data: history }, { data: settings }] = await Promise.all([
     supabase
@@ -77,6 +95,13 @@ export default async function MemberDetailPage(props: PageProps<"/members/[id]">
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start gap-3">
+        {/* Signed URL, so no next/image: the loader would need the host
+            allow-listed and would cache a URL that expires in ten minutes. */}
+        <Avatar className="size-16">
+          {photoUrl ? <AvatarImage src={photoUrl} alt="" /> : null}
+          <AvatarFallback>{initials(member.full_name)}</AvatarFallback>
+        </Avatar>
+
         <div className="flex-1">
           <h2 className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight">
             {member.full_name}
@@ -101,9 +126,20 @@ export default async function MemberDetailPage(props: PageProps<"/members/[id]">
             {member.email}
             {member.phone ? ` · ${member.phone}` : ""}
           </p>
+          {member.address ? (
+            // whitespace-pre-line: the address is stored as typed, and a
+            // three-line address must not collapse onto one.
+            <p className="text-muted-foreground mt-1 text-sm whitespace-pre-line">
+              {member.address}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex gap-2">
+          <MemberPasswordReset
+            memberId={member.id}
+            memberName={member.full_name}
+          />
           <MemberStatusToggle memberId={member.id} active={member.is_active} />
           <Button
             variant="outline"

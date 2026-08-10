@@ -18,10 +18,14 @@ export default async function MemberLayout({ children }: LayoutProps<"/">) {
   if (!user) redirect("/login");
 
   return (
+    /*
+     * Kept a notch under the librarian sidebar, as before: the member nav is
+     * a few short items and has no category sub-list.
+     */
     <SidebarProvider
       style={
         {
-          "--sidebar-width": "calc(var(--spacing) * 64)",
+          "--sidebar-width": "calc(var(--spacing) * 56)",
           "--header-height": "calc(var(--spacing) * 12)",
         } as React.CSSProperties
       }

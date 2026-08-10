@@ -11,8 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { requireLibrarian } from "@/lib/dal";
+import { formatShelfLocation } from "@/lib/shelf";
 import { createClient } from "@/lib/supabase/server";
-import type { CopyStatus } from "@/lib/types";
+import { MATERIAL_CATEGORY_LABELS, type CopyStatus } from "@/lib/types";
 
 import { CopiesPanel, type CopyRow } from "./copies-panel";
 
@@ -24,7 +25,7 @@ export default async function BookDetailPage(props: PageProps<"/books/[id]">) {
   const { data: book } = await supabase
     .from("books")
     .select(
-      "id, title, author, isbn, publisher, edition, year, category, language, description",
+      "id, title, author, isbn, publisher, edition, year, category, department, language, description",
     )
     .eq("id", id)
     .maybeSingle();
@@ -34,7 +35,7 @@ export default async function BookDetailPage(props: PageProps<"/books/[id]">) {
   const [{ data: copies }, { data: openLoans }] = await Promise.all([
     supabase
       .from("book_copies")
-      .select("id, accession_number, status, shelf_location")
+      .select("id, accession_number, status, row_no, rack_no, section")
       .eq("book_id", id)
       .order("accession_number"),
     supabase
@@ -54,7 +55,9 @@ export default async function BookDetailPage(props: PageProps<"/books/[id]">) {
       id: copy.id,
       accession_number: copy.accession_number,
       status: copy.status as CopyStatus,
-      shelf_location: copy.shelf_location,
+      row_no: copy.row_no,
+      rack_no: copy.rack_no,
+      section: copy.section,
       borrower: loan?.member_name ?? null,
       due_date: loan?.due_date ?? null,
     };
@@ -65,21 +68,28 @@ export default async function BookDetailPage(props: PageProps<"/books/[id]">) {
   const shelves = [
     ...new Set(
       rows
-        .map((copy) => copy.shelf_location?.trim())
+        .map((copy) =>
+          formatShelfLocation({
+            rowNo: copy.row_no,
+            rackNo: copy.rack_no,
+            section: copy.section,
+          }),
+        )
         .filter((value): value is string => Boolean(value)),
     ),
   ];
-  const shelf =
-    shelves.length === 0 ? null : shelves.length === 1 ? shelves[0] : shelves.join(", ");
+  const shelf = shelves.length ? shelves.join(", ") : null;
 
   const details = [
     ["Author", book.author],
-    ["Shelf", shelf],
+    ["Location", shelf],
     ["ISBN", book.isbn],
     ["Publisher", book.publisher],
     ["Edition", book.edition],
     ["Year", book.year],
-    ["Category", book.category],
+    // The stored value is an enum like "non_book_material"; show the label.
+    ["Category", book.category ? MATERIAL_CATEGORY_LABELS[book.category] : null],
+    ["Department", book.department],
     ["Language", book.language],
   ].filter(([, value]) => value != null && value !== "");
 

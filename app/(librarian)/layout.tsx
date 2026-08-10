@@ -19,10 +19,15 @@ export default async function LibrarianLayout({ children }: LayoutProps<"/">) {
   if (user.role !== "librarian" || !user.isActive) redirect("/my");
 
   return (
+    /*
+     * --sidebar-width 60 = 15rem. The floor is the wordmark beside the 30px
+     * glyph, not the nav labels — "Non-book material" is the longest of those
+     * and still clears the indent under Books.
+     */
     <SidebarProvider
       style={
         {
-          "--sidebar-width": "calc(var(--spacing) * 68)",
+          "--sidebar-width": "calc(var(--spacing) * 60)",
           "--header-height": "calc(var(--spacing) * 12)",
         } as React.CSSProperties
       }

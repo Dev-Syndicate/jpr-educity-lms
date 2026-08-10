@@ -3,10 +3,10 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { getCurrentUser, homePathFor } from "@/lib/dal";
+import { getCurrentUser, homePathFor, requireUser } from "@/lib/dal";
 import { authErrorMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
-import { failure, type ActionState } from "@/lib/types";
+import { failure, success, type ActionState } from "@/lib/types";
 
 const signInSchema = z.object({
   email: z.email("Enter a valid email address.").trim(),
@@ -62,4 +62,72 @@ export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password."),
+    newPassword: z.string().min(8, "Use at least 8 characters."),
+    confirmPassword: z.string().min(1, "Repeat the new password."),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "The two passwords do not match.",
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.newPassword !== data.currentPassword, {
+    message: "That is your current password. Choose a different one.",
+    path: ["newPassword"],
+  });
+
+/**
+ * Change your own password.
+ *
+ * The one thing a member may write. It touches their auth account, not any
+ * library data, so it does not break the read-only rule the member portal is
+ * built on — a member still cannot alter a loan, a fine or their own status.
+ *
+ * Used by members who were handed a temporary password at the counter, and by
+ * librarians changing their own. Anyone signed in can reach it.
+ */
+export async function changePassword(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  // Signed in, whatever the role or account status: a pending member should
+  // still be able to replace the temporary password they were given.
+  const user = await requireUser();
+
+  const parsed = changePasswordSchema.safeParse({
+    currentPassword: formData.get("currentPassword"),
+    newPassword: formData.get("newPassword"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+
+  if (!parsed.success) {
+    return failure("Check the details below.", z.flattenError(parsed.error).fieldErrors);
+  }
+
+  const supabase = await createClient();
+
+  // Re-authenticate first. updateUser() changes the password of whoever holds
+  // the session WITHOUT checking the old one, so a borrowed unlocked browser
+  // would otherwise be enough to lock the real owner out of their account.
+  const { error: reauthError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: parsed.data.currentPassword,
+  });
+
+  if (reauthError) {
+    return failure("That is not your current password.", {
+      currentPassword: ["That is not your current password."],
+    });
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.newPassword,
+  });
+
+  if (error) return failure(authErrorMessage(error));
+
+  return success(undefined, "Password changed.");
 }

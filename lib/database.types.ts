@@ -23,8 +23,10 @@ export type Database = {
           created_at: string
           id: string
           price: number | null
+          rack_no: string | null
           remarks: string | null
-          shelf_location: string | null
+          row_no: string | null
+          section: string | null
           status: Database["public"]["Enums"]["copy_status"]
           updated_at: string
         }
@@ -36,8 +38,10 @@ export type Database = {
           created_at?: string
           id?: string
           price?: number | null
+          rack_no?: string | null
           remarks?: string | null
-          shelf_location?: string | null
+          row_no?: string | null
+          section?: string | null
           status?: Database["public"]["Enums"]["copy_status"]
           updated_at?: string
         }
@@ -49,8 +53,10 @@ export type Database = {
           created_at?: string
           id?: string
           price?: number | null
+          rack_no?: string | null
           remarks?: string | null
-          shelf_location?: string | null
+          row_no?: string | null
+          section?: string | null
           status?: Database["public"]["Enums"]["copy_status"]
           updated_at?: string
         }
@@ -74,9 +80,10 @@ export type Database = {
       books: {
         Row: {
           author: string
-          category: string | null
+          category: Database["public"]["Enums"]["material_category"]
           created_at: string
           created_by: string | null
+          department: string | null
           description: string | null
           edition: string | null
           id: string
@@ -90,9 +97,10 @@ export type Database = {
         }
         Insert: {
           author: string
-          category?: string | null
+          category?: Database["public"]["Enums"]["material_category"]
           created_at?: string
           created_by?: string | null
+          department?: string | null
           description?: string | null
           edition?: string | null
           id?: string
@@ -106,9 +114,10 @@ export type Database = {
         }
         Update: {
           author?: string
-          category?: string | null
+          category?: Database["public"]["Enums"]["material_category"]
           created_at?: string
           created_by?: string | null
+          department?: string | null
           description?: string | null
           edition?: string | null
           id?: string
@@ -403,6 +412,7 @@ export type Database = {
       profiles: {
         Row: {
           account_status: Database["public"]["Enums"]["account_status"]
+          address: string | null
           approved_at: string | null
           approved_by: string | null
           created_at: string
@@ -418,6 +428,7 @@ export type Database = {
           member_type: Database["public"]["Enums"]["member_type"] | null
           notes: string | null
           phone: string | null
+          photo_path: string | null
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
@@ -427,6 +438,7 @@ export type Database = {
         }
         Insert: {
           account_status?: Database["public"]["Enums"]["account_status"]
+          address?: string | null
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
@@ -442,6 +454,7 @@ export type Database = {
           member_type?: Database["public"]["Enums"]["member_type"] | null
           notes?: string | null
           phone?: string | null
+          photo_path?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
@@ -451,6 +464,7 @@ export type Database = {
         }
         Update: {
           account_status?: Database["public"]["Enums"]["account_status"]
+          address?: string | null
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
@@ -466,6 +480,7 @@ export type Database = {
           member_type?: Database["public"]["Enums"]["member_type"] | null
           notes?: string | null
           phone?: string | null
+          photo_path?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
@@ -496,6 +511,7 @@ export type Database = {
           id: number
           library_name: string
           loan_period_days: number
+          loan_period_days_staff: number
           max_books_staff: number
           max_books_student: number
           max_renewals: number
@@ -508,6 +524,7 @@ export type Database = {
           id?: number
           library_name?: string
           loan_period_days?: number
+          loan_period_days_staff?: number
           max_books_staff?: number
           max_books_student?: number
           max_renewals?: number
@@ -520,6 +537,7 @@ export type Database = {
           id?: number
           library_name?: string
           loan_period_days?: number
+          loan_period_days_staff?: number
           max_books_staff?: number
           max_books_student?: number
           max_renewals?: number
@@ -535,7 +553,8 @@ export type Database = {
         Row: {
           author: string | null
           available_copies: number | null
-          category: string | null
+          category: Database["public"]["Enums"]["material_category"] | null
+          department: string | null
           description: string | null
           edition: string | null
           id: string | null
@@ -684,6 +703,41 @@ export type Database = {
         }
         Returns: number
       }
+      current_profile: {
+        Args: never
+        Returns: {
+          account_status: Database["public"]["Enums"]["account_status"]
+          address: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          declared_member_type:
+            | Database["public"]["Enums"]["member_type"]
+            | null
+          department: string | null
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean
+          member_type: Database["public"]["Enums"]["member_type"] | null
+          notes: string | null
+          phone: string | null
+          photo_path: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          roll_number: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       is_approved_user: { Args: never; Returns: boolean }
       is_librarian: { Args: never; Returns: boolean }
       issue_book: {
@@ -782,6 +836,13 @@ export type Database = {
       copy_condition: "new" | "good" | "fair" | "poor"
       copy_status: "available" | "issued" | "lost" | "damaged"
       fine_type: "overdue" | "lost" | "damage"
+      material_category:
+        | "book"
+        | "non_book_material"
+        | "project"
+        | "thesis"
+        | "proceeding"
+        | "magazine"
       member_type: "student" | "staff"
       user_role: "librarian" | "member"
     }
@@ -915,6 +976,14 @@ export const Constants = {
       copy_condition: ["new", "good", "fair", "poor"],
       copy_status: ["available", "issued", "lost", "damaged"],
       fine_type: ["overdue", "lost", "damage"],
+      material_category: [
+        "book",
+        "non_book_material",
+        "project",
+        "thesis",
+        "proceeding",
+        "magazine",
+      ],
       member_type: ["student", "staff"],
       user_role: ["librarian", "member"],
     },

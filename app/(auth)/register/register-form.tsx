@@ -101,7 +101,12 @@ export function RegisterForm() {
             <FieldLabel htmlFor="memberType">I am a</FieldLabel>
             <Select name="memberType" defaultValue="student">
               <SelectTrigger id="memberType">
-                <SelectValue />
+                {/* Base UI shows the raw value ("student") unless formatted. */}
+                <SelectValue>
+                  {(value: string | null) =>
+                    value === "staff" ? "Faculty" : "Student"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>

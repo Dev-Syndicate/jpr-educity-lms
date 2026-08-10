@@ -14,7 +14,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
         <div className="flex justify-center gap-2 md:justify-start">
           <span className="flex items-center gap-2.5 font-medium">
             <BrandMark size={32} />
-            Jeppiaar Educity Library Management System
+            Jeppiaar Educity LMS
           </span>
         </div>
 

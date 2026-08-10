@@ -335,8 +335,9 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-header"
       data-sidebar="header"
       className={cn(
-        // Tight by default because the first group below carries its own
-        // py-2.5; a consumer that adds a divider overrides the bottom pad.
+        // Tight by default: the breathing room below the header comes from
+        // SidebarContent's pt-2, so this stays close to the brand it wraps.
+        // A consumer adding a divider overrides the bottom pad.
         "flex flex-col gap-2 px-3 pt-3 pb-1 group-data-[collapsible=icon]:px-2",
         className
       )}
@@ -379,7 +380,10 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "no-scrollbar flex min-h-0 flex-1 flex-col gap-0 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        // pt-2 so the first nav item clears the header (and the rule under it)
+        // instead of sitting flush against it. gap-0 between groups is
+        // deliberate — the group labels carry that separation themselves.
+        "no-scrollbar flex min-h-0 flex-1 flex-col gap-0 overflow-auto pt-2 group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
       {...props}
@@ -395,7 +399,11 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         // px-3 while expanded; the icon rail is only 3rem wide, so it falls
         // back to p-2 there or the square buttons overflow it.
-        "relative flex w-full min-w-0 flex-col gap-1 px-3 py-2.5 group-data-[collapsible=icon]:px-2",
+        //
+        // py-1: adjacent groups stack their vertical padding, so py-2.5 became
+        // 20px of dead space between every section on top of the label's own
+        // box. The gap between sections comes from the label, not from this.
+        "relative flex w-full min-w-0 flex-col gap-1 px-3 py-1 group-data-[collapsible=icon]:px-2",
         className
       )}
       {...props}
@@ -413,7 +421,16 @@ function SidebarGroupLabel({
     props: mergeProps<"div">(
       {
         className: cn(
-          "flex h-9 shrink-0 items-center rounded-md px-3 text-xs font-medium text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+          // No top margin: the label is a caption for the items directly below
+          // it, and the group's own py-1 already separates one section from the
+          // next. h-6 keeps the box close to the 12px text it holds — anything
+          // taller reads as a gap above the heading rather than as spacing
+          // between groups.
+          // On the icon rail the label is hidden, and the negative margin has
+          // to cancel its whole box — h-6 is 24px, so -mt-6. Unused today
+          // (both sidebars are collapsible="offcanvas") but wrong is wrong,
+          // and it would show up as a stray gap the day one switches.
+          "flex h-6 shrink-0 items-center rounded-md px-3 text-xs font-medium text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:-mt-6 group-data-[collapsible=icon]:opacity-0 focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
           className
         ),
       },
@@ -488,7 +505,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button group/menu-button flex w-full items-center gap-3 overflow-hidden rounded-md px-3 py-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:p-2.5! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-5 [&_svg]:shrink-0 [&>span:last-child]:truncate",
+  "peer/menu-button group/menu-button flex w-full items-center gap-2.5 overflow-hidden rounded-md px-2.5 py-1.5 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
   {
     variants: {
       variant: {
@@ -497,8 +514,11 @@ const sidebarMenuButtonVariants = cva(
           "bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_var(--sidebar-accent)]",
       },
       size: {
-        default: "h-11 text-[0.95rem]",
-        sm: "h-9 text-sm",
+        // Trimmed from h-11/0.95rem: the nav is a list to scan, not a set of
+        // primary actions, and the taller row spaced the sections far enough
+        // apart that the group labels stopped reading as headings.
+        default: "h-9 text-sm",
+        sm: "h-8 text-sm",
         lg: "h-14 text-sm group-data-[collapsible=icon]:p-0!",
       },
     },

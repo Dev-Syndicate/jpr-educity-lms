@@ -3,6 +3,34 @@ export type MemberType = "student" | "staff";
 export type AccountStatus = "pending" | "active" | "rejected";
 export type CopyStatus = "available" | "issued" | "lost" | "damaged";
 
+/** What kind of item a title is. Mirrors the material_category enum. */
+export type MaterialCategory =
+  | "book"
+  | "non_book_material"
+  | "project"
+  | "thesis"
+  | "proceeding"
+  | "magazine";
+
+/**
+ * Display names for the category enum, in the order they should appear in a
+ * dropdown. Declared once here so the form, the table and the detail page
+ * cannot drift apart — and so a value added to the enum surfaces as a
+ * TypeScript error here rather than as a raw "non_book_material" on screen.
+ */
+export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
+  book: "Book",
+  non_book_material: "Non-book material",
+  project: "Project",
+  thesis: "Thesis",
+  proceeding: "Proceeding",
+  magazine: "Magazine",
+};
+
+export const MATERIAL_CATEGORIES = Object.keys(
+  MATERIAL_CATEGORY_LABELS,
+) as MaterialCategory[];
+
 export type CurrentUser = {
   id: string;
   email: string;

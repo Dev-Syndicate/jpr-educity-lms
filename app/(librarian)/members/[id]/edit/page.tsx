@@ -15,7 +15,9 @@ export default async function EditMemberPage(props: PageProps<"/members/[id]/edi
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("id, full_name, email, roll_number, member_type, department, phone")
+    .select(
+      "id, full_name, email, roll_number, member_type, department, phone, address",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -36,6 +38,7 @@ export default async function EditMemberPage(props: PageProps<"/members/[id]/edi
           memberType: data.member_type,
           department: data.department,
           phone: data.phone,
+          address: data.address,
         }}
       />
     </div>

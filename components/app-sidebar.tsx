@@ -2,6 +2,7 @@
 
 import {
   BookOpenIcon,
+  ChevronDownIcon,
   IndianRupeeIcon,
   LayoutDashboardIcon,
   LibraryBigIcon,
@@ -11,11 +12,16 @@ import {
   UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { BrandMark } from "@/components/brand-mark";
 
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Sidebar,
   SidebarContent,
@@ -27,9 +33,16 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import type { CurrentUser } from "@/lib/types";
+import {
+  MATERIAL_CATEGORIES,
+  MATERIAL_CATEGORY_LABELS,
+  type CurrentUser,
+} from "@/lib/types";
 
 import { NavUser } from "./nav-user";
 
@@ -40,9 +53,23 @@ const COUNTER = [
 ];
 
 const MANAGE = [
-  { title: "Books", url: "/books", icon: LibraryBigIcon },
   { title: "Members", url: "/members", icon: UsersIcon },
   { title: "Librarians", url: "/staff", icon: ShieldCheckIcon },
+];
+
+/**
+ * Books, plus one child per material category.
+ *
+ * "All books" leads the list because it is the common case and would
+ * otherwise be reachable only by clicking the group header, which reads as a
+ * disclosure control rather than a link.
+ */
+const BOOK_LINKS = [
+  { title: "All books", url: "/books" },
+  ...MATERIAL_CATEGORIES.map((value) => ({
+    title: MATERIAL_CATEGORY_LABELS[value],
+    url: `/books?category=${value}`,
+  })),
 ];
 
 export function AppSidebar({
@@ -50,6 +77,7 @@ export function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar> & { user: CurrentUser }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isMobile, setOpenMobile } = useSidebar();
 
   /**
@@ -66,6 +94,51 @@ export function AppSidebar({
   const isActive = (url: string) =>
     pathname === url || pathname.startsWith(`${url}/`);
 
+  const activeCategory = searchParams.get("category");
+  const onBooks = isActive("/books");
+
+  /**
+   * Books is a CONTROLLED collapsible.
+   *
+   * `defaultOpen` is read once at mount, so deriving it from the path made it
+   * change on navigation and Base UI warned:
+   *
+   *   "A component is changing the default open state of an uncontrolled
+   *    Collapsible after being initialized."
+   *
+   * Controlled state keeps both behaviours that matter: navigating into
+   * /books opens the group (below), and the librarian can still close it by
+   * hand without the next render forcing it back open.
+   */
+  const [booksOpen, setBooksOpen] = useState(onBooks);
+
+  // Adjusting state during render, rather than in an effect: React re-runs
+  // this component immediately without painting the stale value, so there is
+  // no flash and no cascading render. An effect here would be the
+  // set-state-in-effect anti-pattern.
+  //
+  // Comparing against the PREVIOUS value is what makes a manual close stick:
+  // this fires only on the render where you arrive at /books, not on every
+  // render while you are there.
+  const [wasOnBooks, setWasOnBooks] = useState(onBooks);
+  if (onBooks !== wasOnBooks) {
+    setWasOnBooks(onBooks);
+    if (onBooks) setBooksOpen(true);
+  }
+
+  /**
+   * A category link is current only when its own ?category= is the active one.
+   *
+   * Compared against the query string rather than the path, since every child
+   * shares /books. "All books" is current when no category is filtered — and
+   * only on the list itself, so a book's detail page does not light it up.
+   */
+  const isBookLinkActive = (url: string) => {
+    const category = url.split("category=")[1] ?? null;
+    if (!category) return pathname === "/books" && !activeCategory;
+    return pathname === "/books" && activeCategory === category;
+  };
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       {/* A rule below the wordmark, matching the footer, so the brand is its
@@ -80,16 +153,14 @@ export function AppSidebar({
           {/* Glyph: --sidebar is the same green as the tile's own ground, so
               the tile variant would either disappear into it or, if that token
               changed, show up as a square nobody asked for. */}
-          <BrandMark size={30} variant="glyph" className="shrink-0" />
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-sidebar-primary text-[0.6rem] font-semibold tracking-[0.18em] uppercase">
-              Jeppiaar Educity
-            </span>
-            {/* Wraps to two lines inside a 16rem sidebar; balanced so it breaks
-                after "Library Management" rather than orphaning "System". */}
-            <span className="text-base leading-snug font-semibold text-balance">
-              Library Management System
-            </span>
+          <BrandMark size={26} variant="glyph" className="shrink-0" />
+          {/* One line, not an eyebrow over a name: beside the glyph there is
+              only ~10rem left in a 15rem sidebar, and "Jeppiaar Educity" over
+              a bare "LMS" left the second line dangling. text-sm, not
+              text-base — at this width the full name would otherwise
+              truncate, and a clipped wordmark is worse than a smaller one. */}
+          <span className="min-w-0 truncate text-sm leading-snug font-semibold">
+            Jeppiaar Educity LMS
           </span>
         </Link>
       </SidebarHeader>
@@ -140,6 +211,45 @@ export function AppSidebar({
           <SidebarGroupLabel>Manage</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Opens on arriving anywhere under /books, so the category you
+                  are filtered to stays visible instead of collapsing on
+                  navigation. See the note on booksOpen for why this is
+                  controlled rather than defaultOpen. */}
+              <Collapsible
+                open={booksOpen}
+                onOpenChange={setBooksOpen}
+                className="group/collapsible"
+                render={<SidebarMenuItem />}
+              >
+                <CollapsibleTrigger
+                  render={
+                    <SidebarMenuButton
+                      tooltip="Books"
+                      // The header highlights only on /books itself; a child
+                      // filter highlights the child instead, or two rows would
+                      // claim to be current at once.
+                      isActive={isActive("/books") && !activeCategory}
+                    >
+                      <LibraryBigIcon />
+                      <span>Books</span>
+                      <ChevronDownIcon className="ml-auto transition-transform duration-200 group-data-panel-open/collapsible:rotate-180" />
+                    </SidebarMenuButton>
+                  }
+                />
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {BOOK_LINKS.map((link) => (
+                      <SidebarMenuSubItem key={link.url}>
+                        <SidebarMenuSubButton
+                          isActive={isBookLinkActive(link.url)}
+                          render={<Link href={link.url}>{link.title}</Link>}
+                        />
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </Collapsible>
+
               {MANAGE.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton

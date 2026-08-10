@@ -14,7 +14,7 @@ export default async function SettingsPage() {
   const { data } = await supabase
     .from("settings")
     .select(
-      "loan_period_days, fine_per_day, max_renewals, max_books_student, max_books_staff, public_registration, library_name",
+      "loan_period_days, loan_period_days_staff, fine_per_day, max_renewals, max_books_student, max_books_staff, public_registration, library_name",
     )
     .eq("id", 1)
     .maybeSingle();

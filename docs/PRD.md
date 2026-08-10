@@ -138,7 +138,8 @@ These rules are the heart of the system. They are enforced at the **database lay
 
 | Rule | Value | Configurable |
 |---|---|---|
-| Loan period | 15 days | Yes |
+| Loan period — student | 15 days | Yes |
+| Loan period — faculty | 90 days (about three months) | Yes |
 | Maximum books — student | 3 | Yes |
 | Maximum books — staff | 5 | Yes |
 
@@ -152,10 +153,10 @@ These rules are the heart of the system. They are enforced at the **database lay
 | Rule | Value | Configurable |
 |---|---|---|
 | Maximum renewals per loan | 2 | Yes |
-| New due date on renewal | Renewal day + 15 days | Yes (follows loan period) |
+| New due date on renewal | Renewal day + the borrower's loan period | Yes (follows loan period) |
 
 - Renewal is performed by the **librarian at the counter**. The member brings the book, the librarian clicks Renew. Members cannot renew themselves.
-- Renewal sets the due date to **the day of renewal + 15 days** — not the old due date + 15.
+- Renewal sets the due date to **the day of renewal + the borrower's loan period** (15 days for a student, 90 for faculty) — not the old due date + that period.
 - **An overdue book cannot be renewed while a fine is unpaid.** The librarian must collect (or waive) the fine first, then renew.
 
 ### 3.3 Fines
@@ -197,7 +198,8 @@ A librarian can edit these in-app. Defaults:
 
 | Setting | Default |
 |---|---|
-| Loan period | 15 days |
+| Loan period — student | 15 days |
+| Loan period — faculty | 90 days |
 | Fine per day | ₹1 |
 | Maximum renewals | 2 |
 | Maximum books — student | 3 |
@@ -240,19 +242,23 @@ This is the most-used screen in the system and the one the product is judged on.
 
 | ID | Requirement |
 |---|---|
-| B-1 | Add, edit and view books with title, author, ISBN, publisher, year and category. |
+| B-1 | Add, edit and view books with title, author, ISBN, publisher, year, **category** and **department**. Category is a fixed list — Book, Non-book material, Project, Thesis, Proceeding, Magazine — describing what kind of item it is. Department is free text naming the owning department ("S & H", "CSE"), matching how the racks are labelled. |
 | B-2 | Search the catalogue by title, author or ISBN. |
 | B-3 | A book has one or more **physical copies**, each identified by the **accession number already printed on it**. Any format is accepted; it must be unique across the library. |
 | B-4 | Add copies by entering the accession number from each physical book. Several can be entered at once. The system never invents a number: an invented one would not match the label on the shelf.
 | B-5 | Mark a copy as lost or damaged. A lost copy's open loan is closed and its fine frozen. |
 | B-6 | A copy currently on loan cannot be retired or deleted. |
+| B-9 | A title can be **deleted** from the books list, after confirmation. Deleting removes its copies with it. A title that has **ever been borrowed cannot be deleted** — its loan history has to stay (DI-5), and the librarian is told so rather than shown a constraint error. `on delete restrict` on `book_copies.book_id` and `loans.book_id` enforces this in the database, so the rule holds even if the check in the action were bypassed. |
 | B-7 | Book detail shows every copy, its status, and who currently holds it. |
+| B-8 | Each copy records where it sits: **Row**, **Rack** and **Section**, matching the rack labels ("Row 09 · Rack-01 · Section-A"). All three are optional — a copy can be catalogued before it is shelved. The location is entered **once per batch** when copies are added (copies arriving together share a shelf), and corrected **per copy** inline in the book's copy list. Editing a title never moves copies that are already shelved. Copies of one title usually share a shelf, so the detail page shows the single shared location; when they are split it lists each. |
 
 ### 4.3 Member management (librarian)
 
 | ID | Requirement |
 |---|---|
-| M-1 | Create a member account: full name, roll/staff number, member type, department, email, contact number. |
+| M-1 | Create a member account: full name, roll/staff number, member type, department, email, contact number, **postal address** and an optional **photo**. Address and photo are optional — a member can be created at the counter without them and completed later. |
+| M-1b | A librarian can **reset a member's password** from the member's page. A fresh temporary password is generated (never typed by the librarian) and shown **once**, to be read out or written down; it is not recoverable afterwards. Confirmed before it runs, since it immediately invalidates the member's current password. **Members only** — a librarian cannot reset another librarian's password this way, which would otherwise be an account takeover. Requires no email delivery. |
+| M-1a | A member's photo is **private**. Librarians see any member's photo, so a face can be checked against a card at the counter; a member sees only their own. Photos are never publicly reachable. Uploads are limited to images under 2 MB, enforced at the storage bucket rather than only in the form. |
 | M-2 | Search members by name or roll number. |
 | M-3 | View a member's profile: current loans with due dates, full borrowing history, fines, and current usage against their limit (e.g. "2 of 3 books"). |
 | M-4 | Edit a member's details. |
@@ -310,7 +316,8 @@ Approval normally happens at the counter (C-12 … C-16). Pending applicants are
 | P-3 | A prominent total of any amount owed, with a note that payment is made at the counter. |
 | P-4 | View own borrowing history. |
 | P-5 | Browse and search the catalogue, seeing availability counts (e.g. "2 of 3 available"). |
-| P-6 | **No action is available anywhere.** No renew, no reserve, no profile edit. Overdue items are shown informationally with "please return at the library counter". |
+| P-6 | **No action against library data is available anywhere.** No renew, no reserve, no profile edit. Overdue items are shown informationally with "please return at the library counter". The sole exception is P-8: changing one's own password writes to the member's auth account, never to a loan, fine, or account standing. |
+| P-8 | A member can **change their own password** from the portal, without a librarian. The current password must be supplied and is re-verified server-side, so an unattended signed-in browser cannot be used to lock the owner out. Available to pending members too — they were handed a temporary password at the counter and should be able to replace it while waiting for approval. Requires no email delivery. |
 | P-7 | A member can never see another member's data. |
 | P-8 | A **pending** member sees only a "your registration is awaiting approval" message — no catalogue, no loans, nothing else. |
 | P-9 | A **rejected** member cannot log in at all, and is told to visit the library counter. |
@@ -426,6 +433,8 @@ The system is accepted when every one of the following passes.
 - [ ] Returning a copy makes it immediately available.
 - [ ] A third renewal is refused when the maximum is 2.
 - [ ] Renewal sets the due date to today + 15 days, not old due date + 15.
+- [ ] A faculty loan is due in 90 days, a student loan in 15, from the same Issue action.
+- [ ] Renewing a faculty loan sets the due date to today + 90 days.
 
 ### Fines
 - [ ] A book returned on its due date incurs **no** fine.
@@ -479,7 +488,7 @@ The system is accepted when every one of the following passes.
 | # | Question | Impact if unresolved |
 |---|---|---|
 | ~~Q1~~ | ~~Does every student have a college email address?~~ **RESOLVED:** members register with their own **personal email address** (Gmail, etc.). No synthetic or institutional addresses. See §2.4. | Closed |
-| Q2 | Should the fine rate or loan period differ for staff vs students? Currently only the book limit differs. | Minor schema addition if yes |
+| ~~Q2~~ | ~~Should the fine rate or loan period differ for staff vs students?~~ **Answered:** the loan period does — 15 days for students, 90 for faculty (`loan_period_days` / `loan_period_days_staff`). The **fine rate does not**: faculty accrue the same ₹1/day once overdue. | Done |
 | Q3 | Is a printed fine receipt required at the counter? | Small additional screen |
 | Q4 | Roughly how many titles, copies and members should the system expect? | Informs pagination and search tuning |
 
@@ -545,9 +554,9 @@ Migrations in `supabase/migrations/`, ordered so dependencies resolve:
 ### Tables
 
 - **`settings`** — single row of configurable rules.
-- **`profiles`** — 1:1 with `auth.users`: `role`, `member_type`, `roll_number`, `department`, `phone`, `is_active`, plus an **`account_status`** enum (`pending` · `active` · `rejected`) with `approved_by`/`approved_at` and `rejected_by`/`rejected_at`/`rejection_reason`. Only `active` accounts may borrow.
-- **`books`** — title level: title, author, isbn, publisher, year, category.
-- **`book_copies`** — one row per physical copy: `accession_number` (`check (accession_number ~ '^JPR-\d{5}$')`), `status`, `condition`.
+- **`profiles`** — 1:1 with `auth.users`: `role`, `member_type`, `roll_number`, `department`, `phone`, `address`, `photo_path`, `is_active`, plus an **`account_status`** enum (`pending` · `active` · `rejected`) with `approved_by`/`approved_at` and `rejected_by`/`rejected_at`/`rejection_reason`. Only `active` accounts may borrow. `photo_path` is an object path in the private `member-photos` bucket, never a URL.
+- **`books`** — title level: title, author, isbn, publisher, year, `category` (enum: `book` · `non_book_material` · `project` · `thesis` · `proceeding` · `magazine`), `department` (free text). Not to be confused with `profiles.department`, which is the member's own.
+- **`book_copies`** — one row per physical copy: `accession_number` (non-blank, unique, any format — it is the number already printed on the copy), `status`, `condition`, and its shelf address as `row_no` / `rack_no` / `section`.
 - **`loans`** — references a **copy**, not a title: `issued_at`, `due_date`, `returned_at`, `renewal_count`.
 - **`fines`** — separate table (not columns on `loans`): a fine has its own lifecycle — accrues, is assessed, is paid or waived, and needs `collected_by`/`collected_at` and `waived_by`/`waive_reason`.
 - **`loan_events`** — audit trail of issue/return/renew/pay/waive.

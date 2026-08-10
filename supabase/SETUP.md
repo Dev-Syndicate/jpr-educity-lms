@@ -57,35 +57,52 @@ pnpm dlx supabase link --project-ref <your-project-ref>
 pnpm dlx supabase db push
 ```
 
-### On a brand-new database, migration 9 fails — this is expected
+### On a brand-new database, the seed now fails on `category`
 
-`20260809090800_seed.sql` creates a sample catalogue whose copies call
-`next_accession_number()`. Migration `20260809091300` later replaced that
-function with one that only raises: accession numbers are now read off the
-physical copy by the librarian, never generated. The seed therefore aborts
-with:
+`20260810150000_category_enum_and_department.sql` turned `books.category` into
+the `material_category` enum. The seed at `20260809090800_seed.sql` still
+inserts subject names like `'Computer Science'`, which are no longer valid:
 
 ```
-Accession numbers are entered from the physical copy, not generated.
+invalid input value for enum material_category: "Computer Science"
 ```
 
-The sample catalogue is scaffolding and is deleted again by
-`20260809091500_remove_sample_catalogue.sql`, so **nothing of value is lost.**
-Comment out the sample-catalogue block in the seed (the `insert into
-public.books` and the `do $$ ... $$;` after it — keep the `settings` insert at
-the top), then re-run `db push`.
+The seed is **already applied** to the live database, and migrations are
+append-only, so the file is deliberately left as it is. On a *fresh* project,
+comment out the sample-catalogue block (the `insert into public.books` and the
+`do $$ ... $$;` after it — keep the `settings` insert at the top) and re-run
+`db push`. Nothing is lost: `20260809091500_remove_sample_catalogue.sql`
+deletes that catalogue again a few migrations later.
 
-The seed file is left intact rather than edited because migrations are
-append-only once applied to a shared database.
+#### It is *not* the accession number that breaks it
 
-Useful afterwards:
+An earlier version of this document blamed `next_accession_number()`. That was
+wrong, and worth stating so nobody re-applies the wrong fix: migrations run in
+filename order, so at seed time the working sequence-based generator from
+`20260809090300` is still in place — the version that only raises does not
+arrive until `20260809091300`, four migrations later.
+
+Verified on 2026-08-10 by pushing all 17 then-current migrations to an empty
+project: every one applied without error, including the seed. Only the later
+`category` enum change introduced the failure described above.
+
+Useful afterwards. The CLI is a dev dependency, so `pnpm exec` runs the pinned
+version rather than downloading one:
 
 ```bash
-pnpm dlx supabase migration list          # what has been applied
-pnpm dlx supabase db push --dry-run       # preview without applying
-pnpm dlx supabase projects api-keys --project-ref <ref>
-pnpm dlx supabase gen types typescript --linked > lib/database.types.ts
+pnpm exec supabase migration list --linked   # what has been applied
+pnpm exec supabase db push --dry-run         # preview without applying
+pnpm exec supabase db query --linked --file q.sql   # run SQL remotely
+pnpm exec supabase db advisors --linked --type security
+pnpm exec supabase gen types typescript --linked > lib/database.types.ts
 ```
+
+Flag notes for 2.113.0, which are easy to get wrong:
+
+- `migration list` takes **`--linked`**, not `--project-ref`.
+- It is `db query`, not `db execute`.
+- `--linked` belongs **after** the subcommand (`db push --linked`), never
+  directly after `supabase`.
 
 `supabase login` stores an access token on this machine — anything with shell
 access can then reach the project. `supabase logout` clears it.
@@ -165,6 +182,38 @@ select full_name, role, account_status from public.profiles;
 **Create a second librarian the same way.** With only one, a forgotten password
 means nobody can approve members or issue books until someone edits the
 database by hand.
+
+### "Signed in, but your profile is missing. Ask a librarian."
+
+The password was right — an `auth.users` row exists with no matching
+`public.profiles` row. Profiles are created by the `on_auth_user_created`
+trigger, which only fires **on insert**. Any auth user created *before* the
+migrations ran therefore has no profile, and nothing backfills one.
+
+This is the normal state when pointing the app at a new database whose auth
+user was made first. Insert the row directly:
+
+```sql
+insert into public.profiles (id, email, full_name, role, member_type, account_status, is_active)
+select u.id, u.email, 'Head Librarian', 'librarian', null, 'active', true
+  from auth.users u
+ where u.email = 'librarian@example.com'
+on conflict (id) do update
+   set role = 'librarian', member_type = null,
+       account_status = 'active', is_active = true;
+```
+
+`member_type` is null on purpose: librarians are not members, and the check
+constraint on `profiles` enforces it.
+
+To confirm the app will now sign in, exercise what the DAL actually calls:
+
+```sql
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<the-user-uuid>","role":"authenticated"}';
+select (select count(*) from public.current_profile()) as rows,  -- must be 1
+       public.is_librarian();                                    -- must be true
+```
 
 ---
 

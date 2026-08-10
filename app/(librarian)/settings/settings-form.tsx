@@ -24,6 +24,7 @@ import { idleState } from "@/lib/types";
 
 export type SettingsValues = {
   loan_period_days: number;
+  loan_period_days_staff: number;
   fine_per_day: number;
   max_renewals: number;
   max_books_student: number;
@@ -55,7 +56,10 @@ export function SettingsForm({ settings }: { settings: SettingsValues }) {
 
   return (
     <form action={action} className="flex max-w-2xl flex-col gap-6">
-      <FormFeedback state={state} />
+      {/* "Saved." goes to a toast — the librarian stays on this page and a
+          banner above the fields just pushed the form down. A validation
+          failure stays inline, where it points at the fields it names. */}
+      <FormFeedback state={state} successToastOnly />
 
       <Card>
         <CardHeader>
@@ -67,16 +71,41 @@ export function SettingsForm({ settings }: { settings: SettingsValues }) {
         </CardHeader>
         <CardContent>
           <FieldGroup>
+            {/* Each input is keyed on its saved value so a successful save
+                remounts it. These are uncontrolled, but updateSettings calls
+                refresh(), which feeds new values back into defaultValue —
+                which does nothing to a live input and makes Base UI warn
+                about changing an uncontrolled field after initialization. */}
             <div className="grid gap-6 sm:grid-cols-2">
               <Field data-invalid={state.fieldErrors?.loanPeriodDays ? true : undefined}>
-                <FieldLabel htmlFor="loanPeriodDays">Loan period (days)</FieldLabel>
+                <FieldLabel htmlFor="loanPeriodDays">
+                  Loan period — student (days)
+                </FieldLabel>
                 <Input
                   id="loanPeriodDays"
                   name="loanPeriodDays"
                   inputMode="numeric"
+                  key={settings.loan_period_days}
                   defaultValue={settings.loan_period_days}
                 />
                 <FieldError errors={fieldErrors(state, "loanPeriodDays")} />
+              </Field>
+
+              <Field
+                data-invalid={state.fieldErrors?.loanPeriodDaysStaff ? true : undefined}
+              >
+                <FieldLabel htmlFor="loanPeriodDaysStaff">
+                  Loan period — faculty (days)
+                </FieldLabel>
+                <Input
+                  id="loanPeriodDaysStaff"
+                  name="loanPeriodDaysStaff"
+                  inputMode="numeric"
+                  key={settings.loan_period_days_staff}
+                  defaultValue={settings.loan_period_days_staff}
+                />
+                <FieldError errors={fieldErrors(state, "loanPeriodDaysStaff")} />
+                <FieldDescription>90 days is about three months.</FieldDescription>
               </Field>
 
               <Field data-invalid={state.fieldErrors?.finePerDay ? true : undefined}>
@@ -85,6 +114,7 @@ export function SettingsForm({ settings }: { settings: SettingsValues }) {
                   id="finePerDay"
                   name="finePerDay"
                   inputMode="decimal"
+                  key={settings.fine_per_day}
                   defaultValue={settings.fine_per_day}
                 />
                 <FieldError errors={fieldErrors(state, "finePerDay")} />
@@ -96,6 +126,7 @@ export function SettingsForm({ settings }: { settings: SettingsValues }) {
                   id="maxRenewals"
                   name="maxRenewals"
                   inputMode="numeric"
+                  key={settings.max_renewals}
                   defaultValue={settings.max_renewals}
                 />
                 <FieldError errors={fieldErrors(state, "maxRenewals")} />
@@ -107,6 +138,7 @@ export function SettingsForm({ settings }: { settings: SettingsValues }) {
                   id="maxBooksStudent"
                   name="maxBooksStudent"
                   inputMode="numeric"
+                  key={settings.max_books_student}
                   defaultValue={settings.max_books_student}
                 />
                 <FieldError errors={fieldErrors(state, "maxBooksStudent")} />
@@ -118,6 +150,7 @@ export function SettingsForm({ settings }: { settings: SettingsValues }) {
                   id="maxBooksStaff"
                   name="maxBooksStaff"
                   inputMode="numeric"
+                  key={settings.max_books_staff}
                   defaultValue={settings.max_books_staff}
                 />
                 <FieldError errors={fieldErrors(state, "maxBooksStaff")} />
@@ -154,6 +187,7 @@ export function SettingsForm({ settings }: { settings: SettingsValues }) {
               <Input
                 id="libraryName"
                 name="libraryName"
+                key={settings.library_name}
                 defaultValue={settings.library_name}
               />
               <FieldDescription>Shown to members.</FieldDescription>

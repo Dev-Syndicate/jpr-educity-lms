@@ -23,9 +23,18 @@ export function FormFeedback({
   state,
   toastOnly = false,
   inlineOnly = false,
+  successToastOnly = false,
 }: {
   state: ActionState<unknown>;
   toastOnly?: boolean;
+  /**
+   * Toast the success, but keep failures inline.
+   *
+   * For a form the user stays on after saving: "Saved." is a confirmation and
+   * belongs in a corner, while "Check the values below" names the fields it is
+   * talking about and must not float away from them on a timer.
+   */
+  successToastOnly?: boolean;
   /**
    * Suppress the toast. For a form the user is still filling in, where the
    * message belongs beside the fields being corrected rather than floating
@@ -36,6 +45,7 @@ export function FormFeedback({
   useActionToast(inlineOnly ? IDLE : state);
 
   if (!state.message || toastOnly) return null;
+  if (successToastOnly && state.ok) return null;
 
   return (
     <Alert

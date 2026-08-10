@@ -164,7 +164,7 @@
       <g>
         <rect x="46" y="272" width="212" height="60" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
         <text x="152" y="297" text-anchor="middle" font-size="14" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">book_copies</text>
-        <text x="152" y="316" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">physical copy · its own serial</text>
+        <text x="152" y="316" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">physical copy · its own accession no.</text>
       </g>
 
       <!-- loans -->
@@ -431,6 +431,8 @@
       <tr><td class="col">roll_number<span class="uq">UQ</span></td><td class="typ">text</td><td class="desc">roll no. or staff ID; used at the counter</td></tr>
       <tr><td class="col">department</td><td class="typ">text</td><td class="desc"></td></tr>
       <tr><td class="col">phone</td><td class="typ">text</td><td class="desc"></td></tr>
+      <tr><td class="col">address</td><td class="typ">text</td><td class="desc">postal address, as written</td></tr>
+      <tr><td class="col">photo_path</td><td class="typ">text</td><td class="desc">object path in the private <code>member-photos</code> bucket — not a URL</td></tr>
       <tr><td class="col">is_active</td><td class="typ">bool</td><td class="desc">false blocks borrowing; never delete</td></tr>
       <tr><td class="col">account_status</td><td class="typ">enum</td><td class="desc"><strong>pending · active · rejected</strong> — only active may borrow</td></tr>
       <tr><td class="col">approved_by</td><td class="typ">uuid</td><td class="desc">which librarian approved</td></tr>
@@ -450,7 +452,8 @@
       <tr><td class="col">publisher</td><td class="typ">text</td><td class="desc"></td></tr>
       <tr><td class="col">edition</td><td class="typ">text</td><td class="desc"></td></tr>
       <tr><td class="col">year</td><td class="typ">smallint</td><td class="desc">1400–2200</td></tr>
-      <tr><td class="col">category</td><td class="typ">text</td><td class="desc"></td></tr>
+      <tr><td class="col">category</td><td class="typ">enum</td><td class="desc">book · non_book_material · project · thesis · proceeding · magazine</td></tr>
+      <tr><td class="col">department</td><td class="typ">text</td><td class="desc">owning department, e.g. "S &amp; H", "CSE". Free text — matches the rack labels.</td></tr>
       <tr><td class="col">search_vector</td><td class="typ">tsvector</td><td class="desc">generated; always in sync</td></tr>
     </table>
   </article>
@@ -461,10 +464,12 @@
     <table>
       <tr><td class="col">id<span class="pk">PK</span></td><td class="typ">uuid</td><td class="desc"></td></tr>
       <tr><td class="col">book_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ books</td></tr>
-      <tr><td class="col">accession_number<span class="uq">UQ</span></td><td class="typ">text</td><td class="desc">the serial printed on the copy, entered by the librarian. Unique, any format.</td></tr>
+      <tr><td class="col">accession_number<span class="uq">UQ</span></td><td class="typ">text</td><td class="desc">the accession number printed on the copy, entered by the librarian. Unique, any format.</td></tr>
       <tr><td class="col">status</td><td class="typ">enum</td><td class="desc">available · issued · lost · damaged</td></tr>
       <tr><td class="col">condition</td><td class="typ">enum</td><td class="desc">new · good · fair · poor</td></tr>
-      <tr><td class="col">shelf_location</td><td class="typ">text</td><td class="desc">where to find it</td></tr>
+      <tr><td class="col">row_no</td><td class="typ">text</td><td class="desc">where to find it — "09"</td></tr>
+      <tr><td class="col">rack_no</td><td class="typ">text</td><td class="desc">"01"</td></tr>
+      <tr><td class="col">section</td><td class="typ">text</td><td class="desc">"A"</td></tr>
       <tr><td class="col">acquired_on</td><td class="typ">date</td><td class="desc"></td></tr>
       <tr><td class="col">price</td><td class="typ">numeric</td><td class="desc">for replacement charges</td></tr>
     </table>
@@ -513,7 +518,8 @@
     <header><h4>settings</h4><span class="note">one row, forever · id = 1</span></header>
     <table>
       <tr><td class="col">id<span class="pk">PK</span></td><td class="typ">smallint</td><td class="desc">check (id = 1) · cannot be deleted</td></tr>
-      <tr><td class="col">loan_period_days</td><td class="typ">integer</td><td class="desc">default 15</td></tr>
+      <tr><td class="col">loan_period_days</td><td class="typ">integer</td><td class="desc">students — default 15</td></tr>
+      <tr><td class="col">loan_period_days_staff</td><td class="typ">integer</td><td class="desc">faculty — default 90 (about three months)</td></tr>
       <tr><td class="col">fine_per_day</td><td class="typ">numeric</td><td class="desc">default ₹1.00</td></tr>
       <tr><td class="col">max_renewals</td><td class="typ">integer</td><td class="desc">default 2</td></tr>
       <tr><td class="col">max_books_student</td><td class="typ">integer</td><td class="desc">default 3</td></tr>
@@ -572,6 +578,48 @@
 language sql stable as $$
   select (now() at time zone 'Asia/Kolkata')::date;
 $$;</code></pre>
+
+<h3>Faculty borrow for a term, students for a fortnight</h3>
+<p class="lede">The loan period depends on who is borrowing: <strong>15 days</strong> for a student, <strong>90 days</strong> for faculty. A student's book circulates among a cohort that needs it back; a faculty member keeps a reference text for the length of a course.</p>
+<p class="lede">Two columns rather than a lookup table, matching <code>max_books_student</code> / <code>max_books_staff</code> — <code>member_type</code> is a two-value enum, so a table of two rows would be indirection without benefit. Both are editable in Settings.</p>
+<p class="lede">The rule lives in <code>issue_book()</code> and <code>renew_loan()</code>, which pick the column from the borrower's <code>member_type</code>. Nothing is decided in the UI, so a direct API call gets the same period.</p>
+<p class="lede">Fines are unchanged: a faculty loan accrues the same ₹1/day once its 90 days are up. And because every loan snapshots <code>loan_period_days_at_issue</code>, changing either figure never moves a due date already set.</p>
+
+<h3>Member photos are private, and the database stores a path</h3>
+<p class="lede">Photos live in a <strong>private</strong> Supabase Storage bucket called <code>member-photos</code>, one object per member at <code>&lt;member-uuid&gt;.&lt;ext&gt;</code>. A member's photo is personal data: it identifies a real person at a real institution, so a public bucket would put every student's face on the open internet for anyone who guessed a URL.</p>
+<p class="lede"><code>profiles.photo_path</code> holds the <em>object path</em>, never a URL. A stored URL would either be public (defeating the bucket) or a signed URL that expires — leaving dead links in the database. The path is durable; the application mints a short-lived signed URL when it renders the image.</p>
+<p class="lede">The bucket's own RLS policies decide access, and they mirror the table's: a librarian may read and write any member's photo, because verifying a face against a card is a counter task; a member may read only their own and cannot write at all, since members are read-only everywhere else in this system. Naming objects by the member's uuid is what makes those policies expressible — the owning member is derivable from the filename, so a policy can compare it to <code>auth.uid()</code>.</p>
+<p class="lede">Uploads are constrained at the bucket, not just in the form: <strong>2 MB</strong> and image MIME types only. A form check is a convenience; the bucket is the boundary.</p>
+
+<h3>A shelf address is three parts, not one string</h3>
+<p class="lede">The racks are labelled <strong>Row 09 → Rack-01 → Section-A</strong>, so a copy's location is stored the same way: <code>row_no</code>, <code>rack_no</code> and <code>section</code>, replacing the old free-text <code>shelf_location</code>.</p>
+<p class="lede">Three columns rather than one string because the parts are asked about separately. "Everything in Row 09" and "what is in Rack-01" are ordinary questions, and they are an indexed equality test on structured columns versus a <code>like</code> against whatever format someone happened to type. A single field also drifts — <code>09-01-A</code>, <code>R9/R1/A</code>, <code>Row 9 Rack 1</code> all mean the same shelf and none of them sort.</p>
+<p class="lede">All three are optional and free text, bounded to 20 characters. A copy can be catalogued before it is shelved, and the labels are not always numeric — trailing letters like <code>09A</code> occur. They are stored uppercased and trimmed so <code>a</code> and <code>A</code> cannot become two sections.</p>
+<p class="lede">Existing <code>shelf_location</code> values were <strong>preserved, not parsed</strong>: each moved into <code>section</code> verbatim. Splitting <code>A-01</code> into a rack and a section would have been guesswork about a format that was never enforced, and a wrong guess silently sends a librarian to the wrong shelf. Re-entering a handful of locations is cheap; discovering they are quietly wrong is not.</p>
+
+<h3>Category is what it is; department is where it belongs</h3>
+<p class="lede">These answer different questions and used to be conflated in one free-text <code>category</code> column that held values like "Computer Science" — a department, not a category.</p>
+<ul class="tight">
+  <li><strong><code>category</code></strong> — what kind of item this is: <code>book</code>, <code>non_book_material</code>, <code>project</code>, <code>thesis</code>, <code>proceeding</code>, <code>magazine</code>. A fixed enum, because the list is a library-wide classification that should not grow by typo. Adding a kind is a migration, deliberately.</li>
+  <li><strong><code>department</code></strong> — which department owns the title: "S &amp; H", "CSE", "MECH". Free text, because it follows however the racks are actually labelled and varies between campuses.</li>
+</ul>
+<p class="lede">Existing rows were migrated by moving the old free-text value into <code>department</code> and defaulting <code>category</code> to <code>book</code> — the previous column only ever held subject names, so nothing is lost and nothing is guessed.</p>
+<p class="lede"><code>department</code> joins the full-text <code>search_vector</code> at weight D, so "S &amp; H" is searchable alongside title and author. <code>category</code> is not in the vector: casting an enum to text is only <em>stable</em>, never <em>immutable</em>, and a generated column rejects it. It needs no free-text search anyway — a closed six-value list is filtered with a dropdown and an indexed equality test.</p>
+<p class="lede">Not to be confused with <code>profiles.department</code>, which is the <em>member's</em> department. The two are unrelated: a CSE student borrows from the S&amp;H racks all the time.</p>
+
+<h3>Anonymous callers cannot reach the librarian RPCs</h3>
+<p class="lede">Every privileged function already begins with <code>assert_librarian()</code>, so an anonymous call fails with <em>"You must be signed in to do this."</em> even though PostgreSQL grants <code>EXECUTE</code> to <code>public</code> by default. That is the real boundary and it holds.</p>
+<p class="lede">The default grant is still revoked, for two reasons: Supabase's own security advisor flags every <code>SECURITY DEFINER</code> function reachable by <code>anon</code>, and a future function whose author forgets the <code>assert_librarian()</code> line should fail closed rather than open. <code>register_member()</code> is the deliberate exception — self-registration has to be callable before sign-in.</p>
+
+<h3>The signed-in user is fetched in one round trip</h3>
+<p class="lede">Every page needs two things before it can render: proof the token is valid, and the caller's profile row. Asking for them in sequence costs two network round trips, which on a deployment where the application and the database sit in different regions is the single largest component of a page load.</p>
+<p class="lede">They cannot be run in parallel naively, because the profile query needs an id and the id comes from verifying the token. <code>current_profile()</code> removes that dependency by resolving <code>auth.uid()</code> inside the database instead:</p>
+<pre style="background: var(--code-bg); padding: .9rem 1.1rem; border-radius: var(--radius); overflow-x: auto; font-size: .85rem; margin: 0 0 1rem;"><code>create function public.current_profile() returns public.profiles
+language sql stable security definer as $$
+  select * from public.profiles where id = auth.uid();
+$$;</code></pre>
+<p class="lede" style="margin-top:-.5rem">The application now issues <code>getUser()</code> and <code>current_profile()</code> concurrently and waits for the slower of the two. It still refuses to trust the profile until <code>getUser()</code> has come back verified, and it re-checks that the returned row's id matches the verified user — the RPC is a latency optimisation, never an authentication step.</p>
+<p class="lede">A plain <code>select … where id = &lt;uid&gt;</code> could not replace this. A librarian's RLS policy lets them read <em>every</em> profile, so the filter is what confines the query to their own row; the whole point of the function is to supply that filter without a prior round trip to learn the id.</p>
 
 <h3>History cannot be re-priced</h3>
 <p class="lede">Each loan stores <code>loan_period_days_at_issue</code> and <code>fine_per_day_at_issue</code> when it is created. Raising the fine to ₹2/day next term changes what new loans accrue, and leaves every past fine exactly as it was assessed. A fine's <code>amount</code> is null while it is still growing and frozen the moment the book comes back.</p>

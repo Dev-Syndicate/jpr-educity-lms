@@ -16,8 +16,8 @@ const accession = z
   .string()
   .trim()
   .toUpperCase()
-  .min(1, "Scan or type a serial number.")
-  .max(50, "That does not look like a serial number.");
+  .min(1, "Scan or type an accession number.")
+  .max(50, "That does not look like an accession number.");
 
 const uuid = z.uuid("Select a member first.");
 

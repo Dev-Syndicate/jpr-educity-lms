@@ -55,6 +55,45 @@ prop, **not** `asChild`:
 <DialogTrigger asChild><Button>Open</Button></DialogTrigger>
 ```
 
+**`SelectValue` needs a formatter.** Radix mirrors the selected `SelectItem`'s
+children into the trigger; Base UI does **not** — a bare `<SelectValue />`
+renders the raw stored value, so an enum shows as `non_book_material`. Pass a
+function that maps the value to its label:
+
+```tsx
+// Correct — the trigger reads "Non-book material"
+<SelectValue>
+  {(value: MaterialCategory | null) =>
+    value ? MATERIAL_CATEGORY_LABELS[value] : ""
+  }
+</SelectValue>
+
+// Wrong — the trigger reads "non_book_material"
+<SelectValue />
+```
+
+Keep the labels in one exported map (see `MATERIAL_CATEGORY_LABELS` in
+`lib/types.ts`) rather than repeating the strings in both the trigger and the
+items, or the two drift.
+
+**A changing `defaultValue` needs a `key`.** Base UI warns when an uncontrolled
+field's default changes after mount:
+
+> A component is changing the default value state of an uncontrolled
+> FieldControl after being initialized.
+
+This bites every edit form here, because the actions call `refresh()` and the
+new server value flows back into `defaultValue` — which does nothing to a live
+input. Key the field on its saved value so a successful save remounts it:
+
+```tsx
+<Input key={book?.title ?? ""} defaultValue={book?.title ?? ""} />
+```
+
+The same applies to `Collapsible`'s `defaultOpen` and `Select`'s
+`defaultValue`. If the value must track server state *while the user is
+typing*, the field wants to be controlled instead.
+
 ### Composition rules
 
 - Forms use `FieldGroup` + `Field` — never a raw `div` with `space-y-*`.
@@ -212,8 +251,13 @@ calls the API directly.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only. It never gets a `NEXT_PUBLIC_`
   prefix, and only `lib/supabase/admin.ts` (marked `import 'server-only'`)
   touches it.
-- Members are strictly read-only. No member-facing screen may contain a control
-  that mutates data.
+- Members are strictly read-only **with respect to library data**. No
+  member-facing screen may contain a control that mutates a book, copy, loan,
+  fine, or an account's standing. The single exception is `/my/password`, which
+  writes to the member's own Supabase auth account and nothing else — it
+  re-verifies the current password server-side before changing it. Adding a
+  second exception needs the same justification: it must touch only the
+  caller's own credentials.
 - Never trust a client-supplied `role`, `account_status` or `member_type`.
 
 ---
@@ -227,6 +271,29 @@ calls the API directly.
 - Reads go through `lib/data/`, which call the DAL first.
 - Money is rupees — format as `₹` consistently.
 - Dates are IST. In SQL always use `today_ist()`, never `current_date`.
+
+## Latency: the database is a network call away
+
+The Supabase project is in **Mumbai** (`ap-south-1`), so `vercel.json` pins
+functions to **`bom1`**. Vercel's default is `iad1` (US East), which puts a
+cross-continental hop on every query. **If the Supabase project ever moves,
+move this with it** — nothing fails loudly, pages just get slow again.
+
+Because every round trip is expensive, two rules matter:
+
+- **Never `await` independent queries in sequence.** Use `Promise.all`. This
+  applies to reads only — Server Actions still dispatch one at a time.
+- **Every route that fetches data needs a `loading.tsx`.** Without one Next
+  cannot stream, so the browser sits on the *previous* page for the whole
+  server render and the click feels dead. Compose `ListSkeleton` for the
+  standard toolbar-plus-table shape; match the real layout so nothing jumps.
+
+`getCurrentUser()` runs on every page. It fetches the session and the profile
+concurrently via the `current_profile()` RPC, which resolves `auth.uid()`
+inside Postgres so there is no id to wait for. That RPC is a latency
+optimisation and **not** an authentication step — the token is still verified
+independently through `getUser()`, and the returned row's id is re-checked
+against it.
 
 ## Before finishing
 

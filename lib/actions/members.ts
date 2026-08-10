@@ -4,10 +4,55 @@ import { refresh, revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireLibrarian } from "@/lib/dal";
-import { rpcErrorMessage } from "@/lib/errors";
+import { authErrorMessage, rpcErrorMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { failure, success, type ActionState } from "@/lib/types";
 import type { AccountStatus, MemberType } from "@/lib/types";
+
+/** Matches the bucket's allowed_mime_types — the bucket is the real check. */
+const PHOTO_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Upload a member's photo and return its object path, or null.
+ *
+ * Named `<uuid>.<ext>` so the owning member is derivable from the filename —
+ * that is what lets the storage policy compare it to auth.uid() and let a
+ * member read their own photo and nobody else's.
+ *
+ * Returns null rather than throwing on a bad or failed upload. A photo is
+ * optional, and losing an otherwise-valid member because their JPEG did not
+ * land would be a worse outcome than a member with no picture; the librarian
+ * can add one from the edit form. Genuinely invalid files are rejected by the
+ * form and by the bucket before reaching here.
+ */
+async function uploadMemberPhoto(
+  memberId: string,
+  file: FormDataEntryValue | null,
+): Promise<string | null> {
+  if (!(file instanceof File) || file.size === 0) return null;
+
+  const extension = PHOTO_TYPES[file.type];
+  if (!extension || file.size > PHOTO_MAX_BYTES) return null;
+
+  const path = `${memberId}.${extension}`;
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+
+  const { error } = await admin.storage
+    .from("member-photos")
+    // upsert: re-uploading replaces the member's photo rather than erroring,
+    // and keeps one object per member instead of accumulating orphans.
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  return error ? null : path;
+}
 
 export type MemberHit = {
   id: string;
@@ -154,6 +199,7 @@ const createSchema = z.object({
   memberType: z.enum(["student", "staff"]),
   department: z.string().trim().max(120).optional(),
   phone: z.string().trim().max(20).optional(),
+  address: z.string().trim().max(500, "Keep the address under 500 characters.").optional(),
   password: z.string().min(8, "Use at least 8 characters."),
 });
 
@@ -171,6 +217,7 @@ export async function createMember(
     memberType: formData.get("memberType"),
     department: formData.get("department") ?? undefined,
     phone: formData.get("phone") ?? undefined,
+    address: formData.get("address") ?? undefined,
     password: formData.get("password"),
   });
 
@@ -203,6 +250,10 @@ export async function createMember(
       member_type: parsed.data.memberType,
       department: parsed.data.department || null,
       phone: parsed.data.phone || null,
+      address: parsed.data.address || null,
+      // Uploaded below: the object is named after the member's uuid, which
+      // does not exist until the auth user above has been created.
+      photo_path: await uploadMemberPhoto(created.user.id, formData.get("photo")),
       role: "member",
       account_status: "active",
       is_active: true,
@@ -234,6 +285,7 @@ const updateSchema = z.object({
   memberType: z.enum(["student", "staff"]),
   department: z.string().trim().max(120).optional(),
   phone: z.string().trim().max(20).optional(),
+  address: z.string().trim().max(500, "Keep the address under 500 characters.").optional(),
 });
 
 export async function updateMember(
@@ -249,11 +301,20 @@ export async function updateMember(
     memberType: formData.get("memberType"),
     department: formData.get("department") ?? undefined,
     phone: formData.get("phone") ?? undefined,
+    address: formData.get("address") ?? undefined,
   });
 
   if (!parsed.success) {
     return failure("Check the details below.", z.flattenError(parsed.error).fieldErrors);
   }
+
+  // Only set when a new file was actually chosen: an untouched file input
+  // submits an empty File, and writing null there would silently delete the
+  // photo every time someone edited a phone number.
+  const uploadedPath = await uploadMemberPhoto(
+    parsed.data.memberId,
+    formData.get("photo"),
+  );
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -264,6 +325,8 @@ export async function updateMember(
       member_type: parsed.data.memberType,
       department: parsed.data.department || null,
       phone: parsed.data.phone || null,
+      address: parsed.data.address || null,
+      ...(uploadedPath ? { photo_path: uploadedPath } : {}),
     })
     .eq("id", parsed.data.memberId);
 
@@ -278,6 +341,91 @@ export async function updateMember(
 
   refresh();
   return success(undefined, "Saved.");
+}
+
+/**
+ * A readable temporary password.
+ *
+ * Generated, never librarian-chosen: a human picking one at the counter all
+ * day converges on the same string for everybody, and it is read aloud or
+ * written on a slip, so it has to survive being transcribed. Ambiguous
+ * characters (O/0, I/l/1) are left out for the same reason.
+ *
+ * crypto.randomUUID is not used — this is spoken, not stored.
+ */
+function temporaryPassword(): string {
+  const letters = "ABCDEFGHJKMNPQRSTUVWXYZ"; // no I, L, O
+  const digits = "23456789"; // no 0, 1
+  const bytes = new Uint32Array(8);
+  crypto.getRandomValues(bytes);
+
+  const word = Array.from({ length: 4 }, (_, i) =>
+    letters[bytes[i] % letters.length],
+  ).join("");
+  const number = Array.from({ length: 4 }, (_, i) =>
+    digits[bytes[i + 4] % digits.length],
+  ).join("");
+
+  // Mixed case + digits, so it satisfies any password policy Supabase applies.
+  return `Lib-${word}-${number}`;
+}
+
+/**
+ * Reset a member's password to a fresh temporary one.
+ *
+ * For the counter: the login screen tells a member who has forgotten their
+ * password to come and ask, and this is what the librarian does when they do.
+ * No email is involved, which matters because no SMTP is configured.
+ *
+ * The new password is returned ONCE, to be read out or written down, exactly
+ * like the create-member flow. It is not stored anywhere in readable form.
+ */
+export async function resetMemberPassword(
+  _prev: ActionState<{ password: string }>,
+  formData: FormData,
+): Promise<ActionState<{ password: string }>> {
+  // Never skip: this action wraps the service-role key.
+  await requireLibrarian();
+
+  const memberId = String(formData.get("memberId") ?? "");
+  if (!z.uuid().safeParse(memberId).success) {
+    return failure("That member no longer exists.");
+  }
+
+  const supabase = await createClient();
+
+  // Confirm the target is a MEMBER before touching their credentials.
+  //
+  // Without this a librarian could reset another librarian's password and take
+  // over their account — the service-role client below bypasses RLS, so this
+  // check is the only thing standing in the way. A librarian who forgets their
+  // own password is handled by a second librarian in the Supabase dashboard,
+  // deliberately a heavier path.
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("id, full_name, role")
+    .eq("id", memberId)
+    .maybeSingle();
+
+  if (!target) return failure("That member no longer exists.");
+  if (target.role !== "member") {
+    return failure("Only member passwords can be reset here.");
+  }
+
+  const password = temporaryPassword();
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+
+  const { error } = await admin.auth.admin.updateUserById(memberId, { password });
+
+  if (error) return failure(authErrorMessage(error));
+
+  refresh();
+  return success(
+    { password },
+    `New password set for ${target.full_name}. Give it to them now.`,
+  );
 }
 
 export async function setMemberActive(

@@ -10,11 +10,13 @@ const TITLES: Record<string, string> = {
   "/my/history": "History",
   "/my/catalogue": "Catalogue",
   "/my/status": "Account status",
+  "/my/password": "Change password",
 };
 
 /**
- * No breadcrumbs here, unlike the librarian header: the member portal is four
- * flat pages with no nesting, so a trail would always be one item long.
+ * No breadcrumbs here, unlike the librarian header: the member portal is a
+ * handful of flat pages with no nesting, so a trail would always be one item
+ * long.
  */
 export function MemberHeader() {
   const pathname = usePathname();

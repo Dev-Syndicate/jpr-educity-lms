@@ -27,22 +27,35 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   // getUser(), never getSession(). getSession decodes the JWT locally without
   // verifying it, so it can be forged.
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  //
+  // These two network calls are started together rather than awaited in
+  // sequence, which on Vercel — where the function and the database sit in
+  // different regions — halves the latency of every page load.
+  //
+  // current_profile() resolves auth.uid() inside Postgres rather than taking an
+  // id from getUser(), which is what removes the dependency between the two
+  // calls. A plain select could not do this: a librarian's RLS
+  // (profiles_select_librarian) can read EVERY profile, so the id filter is
+  // what confines the query to their own row — and knowing that id is exactly
+  // what would have cost the extra round trip.
+  const [
+    {
+      data: { user },
+      error,
+    },
+    { data: profile },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    // No .single(): the function returns a single composite row, not a set,
+    // so PostgREST already yields one object.
+    supabase.rpc("current_profile"),
+  ]);
 
+  // The auth check still gates everything — an unverified token means no user,
+  // whatever the profile query returned. The id comparison then makes sure the
+  // row we fetched really is the verified user's.
   if (error || !user) return null;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(
-      "id, email, full_name, role, member_type, account_status, roll_number, is_active",
-    )
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) return null;
+  if (!profile || profile.id !== user.id) return null;
 
   return {
     id: profile.id,

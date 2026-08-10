@@ -13,15 +13,8 @@ import {
 } from "@/components/ui/tooltip";
 import { signOut } from "@/lib/actions/auth";
 import type { CurrentUser } from "@/lib/types";
+import { initials } from "@/lib/utils";
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 /**
  * Who is signed in, and the one action available to them.

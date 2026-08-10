@@ -4,6 +4,7 @@ import {
   BookOpenIcon,
   ClockIcon,
   HourglassIcon,
+  KeyRoundIcon,
   LibraryBigIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -27,18 +28,29 @@ import {
 import type { CurrentUser } from "@/lib/types";
 
 /**
- * Member navigation. Every entry is a read-only view — nothing here mutates
- * anything, which is the point of the member portal.
+ * Member navigation. Every entry is a read-only view of LIBRARY data —
+ * nothing here alters a loan, a fine or an account's standing, which is the
+ * point of the member portal.
+ *
+ * Password is the one exception, and deliberately so: it writes to the
+ * member's own auth account, not to anything the library owns.
  */
 const NAV = [
   { title: "My books", url: "/my", icon: BookOpenIcon },
   { title: "History", url: "/my/history", icon: ClockIcon },
   { title: "Catalogue", url: "/my/catalogue", icon: LibraryBigIcon },
+  { title: "Password", url: "/my/password", icon: KeyRoundIcon },
 ];
 
-/** What a pending or rejected account can actually reach. */
+/**
+ * What a pending or rejected account can actually reach.
+ *
+ * Password is here too: someone handed a temporary password at the counter
+ * should be able to replace it while they wait to be approved.
+ */
 const STATUS_ONLY = [
   { title: "Account status", url: "/my/status", icon: HourglassIcon },
+  { title: "Password", url: "/my/password", icon: KeyRoundIcon },
 ];
 
 export function MemberSidebar({
@@ -68,14 +80,11 @@ export function MemberSidebar({
         >
           {/* Glyph, for the same reason as the librarian sidebar: --sidebar is
               the tile's own green. */}
-          <BrandMark size={30} variant="glyph" className="shrink-0" />
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-sidebar-primary text-[0.6rem] font-semibold tracking-[0.18em] uppercase">
-              Jeppiaar Educity
-            </span>
-            <span className="text-base leading-snug font-semibold text-balance">
-              Library Management System
-            </span>
+          <BrandMark size={26} variant="glyph" className="shrink-0" />
+          {/* One line at text-sm, as on the librarian side — this sidebar is
+              narrower still, so text-base would truncate the name. */}
+          <span className="min-w-0 truncate text-sm leading-snug font-semibold">
+            Jeppiaar Educity LMS
           </span>
         </Link>
       </SidebarHeader>

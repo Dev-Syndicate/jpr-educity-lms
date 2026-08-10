@@ -11,6 +11,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ export type MemberValues = {
   memberType?: MemberType | null;
   department?: string | null;
   phone?: string | null;
+  address?: string | null;
 };
 
 export function MemberForm({ member }: { member?: MemberValues }) {
@@ -70,6 +72,7 @@ export function MemberForm({ member }: { member?: MemberValues }) {
           <Input
             id="fullName"
             name="fullName"
+            key={member?.fullName ?? ""}
             defaultValue={member?.fullName ?? ""}
             required
             autoFocus
@@ -102,6 +105,7 @@ export function MemberForm({ member }: { member?: MemberValues }) {
             <Input
               id="rollNumber"
               name="rollNumber"
+              key={member?.rollNumber ?? ""}
               defaultValue={member?.rollNumber ?? ""}
               required
               placeholder="21CS042"
@@ -112,9 +116,20 @@ export function MemberForm({ member }: { member?: MemberValues }) {
 
           <Field>
             <FieldLabel htmlFor="memberType">Member type</FieldLabel>
-            <Select name="memberType" defaultValue={member?.memberType ?? "student"}>
+            <Select
+              key={member?.memberType ?? "student"}
+              name="memberType"
+              defaultValue={member?.memberType ?? "student"}
+            >
               <SelectTrigger id="memberType">
-                <SelectValue />
+                {/* Base UI shows the raw value ("student") unless formatted.
+                    The borrowing limits belong in the dropdown, not the
+                    trigger, so this deliberately shows the short label. */}
+                <SelectValue>
+                  {(value: string | null) =>
+                    value === "staff" ? "Faculty" : "Student"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -130,6 +145,7 @@ export function MemberForm({ member }: { member?: MemberValues }) {
             <Input
               id="department"
               name="department"
+              key={member?.department ?? ""}
               defaultValue={member?.department ?? ""}
               placeholder="CSE"
             />
@@ -137,9 +153,45 @@ export function MemberForm({ member }: { member?: MemberValues }) {
 
           <Field>
             <FieldLabel htmlFor="phone">Phone</FieldLabel>
-            <Input id="phone" name="phone" defaultValue={member?.phone ?? ""} />
+            <Input
+              id="phone"
+              name="phone"
+              key={member?.phone ?? ""}
+              defaultValue={member?.phone ?? ""}
+            />
           </Field>
         </div>
+
+        <Field data-invalid={state.fieldErrors?.address ? true : undefined}>
+          <FieldLabel htmlFor="address">Address</FieldLabel>
+          <Textarea
+            id="address"
+            name="address"
+            rows={3}
+            key={member?.address ?? ""}
+            defaultValue={member?.address ?? ""}
+            placeholder={"12, Anna Nagar\nChennai 600040\nTamil Nadu"}
+            aria-invalid={state.fieldErrors?.address ? true : undefined}
+          />
+          <FieldError errors={fieldErrors(state, "address")} />
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="photo">Photo</FieldLabel>
+          <Input
+            id="photo"
+            name="photo"
+            type="file"
+            // Mirrors the bucket's allowed_mime_types. A convenience only —
+            // the bucket rejects anything else regardless of what is sent.
+            accept="image/jpeg,image/png,image/webp"
+          />
+          <FieldDescription>
+            {editing
+              ? "Optional. Choosing a file replaces the current photo."
+              : "Optional. JPEG, PNG or WebP, up to 2 MB."}
+          </FieldDescription>
+        </Field>
 
         {!editing ? (
           <Field data-invalid={state.fieldErrors?.password ? true : undefined}>

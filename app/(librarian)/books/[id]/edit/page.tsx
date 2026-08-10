@@ -16,7 +16,7 @@ export default async function EditBookPage(props: PageProps<"/books/[id]/edit">)
   const { data: book } = await supabase
     .from("books")
     .select(
-      "id, title, author, isbn, publisher, edition, year, category, language, description",
+      "id, title, author, isbn, publisher, edition, year, category, department, language, description",
     )
     .eq("id", id)
     .maybeSingle();
