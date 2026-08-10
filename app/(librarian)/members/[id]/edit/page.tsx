@@ -24,7 +24,7 @@ export default async function EditMemberPage(props: PageProps<"/members/[id]/edi
   if (!data) notFound();
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <div className="flex flex-col gap-2">
         <BackLink href={`/members/${data.id}`} label={data.full_name} />
         <h2 className="text-xl font-semibold tracking-tight">Edit member</h2>

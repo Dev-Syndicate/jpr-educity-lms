@@ -9,7 +9,10 @@ export default async function NewBookPage() {
   await requireLibrarian();
 
   return (
-    <div className="flex flex-col gap-6">
+    // The heading and the form are one column: constrain and centre them
+    // together here, so a wide screen does not strand the form on the left
+    // with the title floating above a different width.
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <div className="flex flex-col gap-2">
         <BackLink href="/books" label="Books" />
         <h2 className="text-xl font-semibold tracking-tight">Add a book</h2>

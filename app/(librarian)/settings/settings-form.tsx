@@ -55,7 +55,9 @@ export function SettingsForm({ settings }: { settings: SettingsValues }) {
   }
 
   return (
-    <form action={action} className="flex max-w-2xl flex-col gap-6">
+    // Centred: this page renders the form on its own, with no heading above
+    // it, so the width and centring belong here rather than on the page.
+    <form action={action} className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       {/* "Saved." goes to a toast — the librarian stays on this page and a
           banner above the fields just pushed the form down. A validation
           failure stays inline, where it points at the fields it names. */}

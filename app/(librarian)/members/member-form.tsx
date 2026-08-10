@@ -48,7 +48,8 @@ export function MemberForm({ member }: { member?: MemberValues }) {
   return (
     <form
       action={editing ? editAction : createAction}
-      className="flex max-w-xl flex-col gap-6"
+      // Width is set by the page, which constrains the heading with it.
+      className="flex flex-col gap-6"
     >
       <FieldGroup>
         <FormFeedback state={state} />
