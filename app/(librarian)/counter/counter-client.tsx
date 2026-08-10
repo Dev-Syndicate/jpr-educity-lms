@@ -12,6 +12,7 @@ import {
 
 import { ScanFeedback } from "@/components/counter/scan-feedback";
 import { ScanInput } from "@/components/counter/scan-input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,7 +44,7 @@ import {
 import { searchBooks, type BookHit } from "@/lib/actions/books";
 import { searchMembers, type MemberHit } from "@/lib/actions/members";
 import { idleState, type ActionState } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, initials } from "@/lib/utils";
 
 /** Completed operations only — see the effect that fills this. */
 type Recent = {
@@ -429,28 +430,7 @@ function IssueSteps({
     <div className="flex flex-col gap-4">
       <Step n={1} label="Member" done={Boolean(member)}>
         {member ? (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-medium">{member.fullName}</span>
-            <span className="text-muted-foreground text-sm">
-              {member.rollNumber ?? "—"} ·{" "}
-              {member.memberType === "staff" ? "Faculty" : "Student"} ·{" "}
-              {member.booksOut}/{member.maxBooks} books
-            </span>
-            {member.owed > 0 ? (
-              <Badge className="bg-overdue-subtle text-overdue">
-                ₹{member.owed.toFixed(2)} due
-              </Badge>
-            ) : null}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto"
-              onClick={onClearMember}
-            >
-              <XIcon />
-              Change
-            </Button>
-          </div>
+          <LoadedMember member={member} onClear={onClearMember} />
         ) : (
           // The search lives in the step that needs it, not in a separate
           // panel competing with it.
@@ -474,6 +454,83 @@ function IssueSteps({
           />
         )}
       </Step>
+    </div>
+  );
+}
+
+/**
+ * The member loaded into step 1 — the librarian's check that the right person
+ * was picked.
+ *
+ * Deliberately more than a confirmation line. Enter selects the top match
+ * without the librarian ever reading the list, so this panel is the only place
+ * a wrong match gets caught, and it has to carry enough to catch it: the photo
+ * to check against the face, the roll number and department to check against
+ * the ID card, the email to separate two students who share a name. A one-line
+ * summary was fine when every selection was a deliberate click; it is not fine
+ * when the common path never opens the list.
+ */
+function LoadedMember({
+  member,
+  onClear,
+}: {
+  member: MemberHit;
+  onClear: () => void;
+}) {
+  const atLimit = member.booksOut >= member.maxBooks;
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border p-3">
+      {/* Signed URL, so no next/image — the loader would need the host
+          allow-listed and would cache a URL that expires in ten minutes. */}
+      <Avatar className="size-14 shrink-0">
+        {member.photoUrl ? <AvatarImage src={member.photoUrl} alt="" /> : null}
+        <AvatarFallback>{initials(member.fullName)}</AvatarFallback>
+      </Avatar>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-medium">{member.fullName}</span>
+          {member.accountStatus === "pending" ? (
+            <Badge className="bg-pending-subtle text-pending">Awaiting approval</Badge>
+          ) : null}
+          {!member.isActive && member.accountStatus === "active" ? (
+            <Badge variant="outline">Deactivated</Badge>
+          ) : null}
+          {member.owed > 0 ? (
+            <Badge className="bg-overdue-subtle text-overdue">
+              ₹{member.owed.toFixed(2)} due
+            </Badge>
+          ) : null}
+        </div>
+
+        {/* The ID-card line: what the librarian reads off the card in hand. */}
+        <p className="text-muted-foreground text-sm">
+          <span className="text-foreground font-mono">{member.rollNumber ?? "—"}</span>
+          {member.department ? ` · ${member.department}` : ""} ·{" "}
+          {member.memberType === "staff" ? "Faculty" : "Student"}
+        </p>
+
+        {/* Separates two people with the same name, which the rest cannot. */}
+        <p className="text-muted-foreground truncate text-xs">
+          {member.email}
+          {member.phone ? ` · ${member.phone}` : ""}
+        </p>
+
+        <p className="text-sm">
+          <span className={cn("font-medium tabular-nums", atLimit && "text-overdue")}>
+            {member.booksOut}/{member.maxBooks} books
+          </span>{" "}
+          <span className="text-muted-foreground">
+            {atLimit ? "— at the limit" : "issued"}
+          </span>
+        </p>
+      </div>
+
+      <Button variant="ghost" size="sm" onClick={onClear}>
+        <XIcon />
+        Change
+      </Button>
     </div>
   );
 }
@@ -672,24 +729,99 @@ function MemberSearch({ onSelect }: { onSelect: (member: MemberHit) => void }) {
   const [searching, startSearch] = useTransition();
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * The query `hits` actually describes.
+   *
+   * Enter has to tell "no member matches" apart from "the results for what you
+   * just typed have not arrived yet" — an empty `hits` looks identical in both
+   * cases, and taking the first row of a stale list would load the wrong
+   * person. Ordinary typing never needs this; Enter does, because it can beat
+   * the debounce.
+   */
+  const hitsFor = useRef("");
+
+  /**
+   * Set while Enter waits on an in-flight search, holding the exact query to
+   * honour. A keystroke landing in that window abandons the pending pick
+   * rather than selecting against a query already moved on from.
+   */
+  const pendingEnter = useRef<string | null>(null);
+
   // Debounced in the change handler rather than an effect: the search is a
   // response to typing, not a synchronisation with external state.
   function onQueryChange(value: string) {
     setQuery(value);
 
     if (debounce.current) clearTimeout(debounce.current);
+    // Any further typing invalidates a queued Enter.
+    pendingEnter.current = null;
 
     const q = value.trim();
     if (q.length < 2) {
       setHits([]);
+      hitsFor.current = q;
       return;
     }
 
-    debounce.current = setTimeout(() => {
-      startSearch(async () => {
-        setHits(await searchMembers(q));
-      });
-    }, 220);
+    debounce.current = setTimeout(() => runSearch(q), 220);
+  }
+
+  function runSearch(q: string) {
+    startSearch(async () => {
+      const rows = await searchMembers(q);
+
+      // A slow request for an earlier query must not overwrite a newer one's
+      // results: concurrent requests can settle out of order, and this field
+      // is typed at fast enough to reach that.
+      if (pendingEnter.current !== null && pendingEnter.current !== q) return;
+
+      setHits(rows);
+      hitsFor.current = q;
+
+      // Enter was pressed before these landed — honour it now.
+      if (pendingEnter.current === q) {
+        pendingEnter.current = null;
+        if (rows.length) select(rows[0]);
+      }
+    });
+  }
+
+  /**
+   * Enter takes the first result.
+   *
+   * The first row is the right default because the list is ordered
+   * active-then-pending then alphabetically, and a roll number — what gets
+   * typed here — is effectively unique.
+   *
+   * Base UI only submits a *highlighted* item on Enter, and `autoHighlight`
+   * highlights on input change, which is too early here: these results arrive
+   * from the server a debounce later, so at keypress time there is often
+   * nothing highlighted and nothing in the list. Hence selecting by hand.
+   */
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+
+    const q = query.trim();
+    if (q.length < 2) return;
+
+    e.preventDefault();
+
+    if (hitsFor.current === q) {
+      // Results are current — no reason to wait.
+      if (hits.length) select(hits[0]);
+      return;
+    }
+
+    // Typed and hit Enter faster than the debounce. Run the search now rather
+    // than making them press Enter a second time, and select when it lands.
+    pendingEnter.current = q;
+    if (debounce.current) clearTimeout(debounce.current);
+    runSearch(q);
+  }
+
+  function select(hit: MemberHit) {
+    onSelect(hit);
+    onQueryChange("");
   }
 
   useEffect(() => () => {
@@ -697,6 +829,12 @@ function MemberSearch({ onSelect }: { onSelect: (member: MemberHit) => void }) {
   }, []);
 
   const typedEnough = query.trim().length >= 2;
+
+  // Also true in the debounce window, where no request is in flight yet but
+  // one is coming. Without it the popup flashes "No member matches" for 220ms
+  // on every keystroke — reading as a failed search rather than an unfinished
+  // one. `searching` alone starts too late to prevent that.
+  const busy = searching || (typedEnough && hitsFor.current !== query.trim());
 
   return (
     <Combobox
@@ -708,21 +846,25 @@ function MemberSearch({ onSelect }: { onSelect: (member: MemberHit) => void }) {
       onValueChange={(value) => {
         const hit = value as MemberHit | null;
         if (!hit) return;
-        onSelect(hit);
-        onQueryChange("");
+        select(hit);
       }}
       itemToStringLabel={(hit: MemberHit) => hit.fullName}
+      // Highlights the top row, so it is visible that Enter has a target and
+      // an arrow key moves off it. Enter itself is handled below — this fires
+      // on input change, which is before the server results exist.
+      autoHighlight
     >
       <ComboboxInput
         placeholder="Search name or roll number"
         showTrigger={false}
         autoFocus
         aria-label="Search members"
+        onKeyDown={onKeyDown}
       />
 
       <ComboboxContent>
         <ComboboxEmpty>
-          {searching
+          {busy
             ? "Searching…"
             : typedEnough
               ? `No member matches “${query.trim()}”.`
@@ -731,7 +873,15 @@ function MemberSearch({ onSelect }: { onSelect: (member: MemberHit) => void }) {
 
         <ComboboxList>
           {(hit: MemberHit) => (
-            <ComboboxItem key={hit.id} value={hit} className="items-start">
+            <ComboboxItem key={hit.id} value={hit} className="items-start gap-2.5 py-1.5">
+              {/* Same verification cue as the loaded panel, so a librarian who
+                  does open the list picks by face, not by name alone. */}
+              <Avatar className="size-8 shrink-0">
+                {hit.photoUrl ? <AvatarImage src={hit.photoUrl} alt="" /> : null}
+                <AvatarFallback className="text-xs">
+                  {initials(hit.fullName)}
+                </AvatarFallback>
+              </Avatar>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex items-center gap-2">
                   <span className="truncate font-medium">{hit.fullName}</span>
