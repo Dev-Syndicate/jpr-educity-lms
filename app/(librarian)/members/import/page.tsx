@@ -16,7 +16,7 @@ export default async function ImportMembersPage() {
   await requireLibrarian();
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 self-center">
       <div className="flex flex-col gap-2">
         <BackLink href="/members" label="Members" />
         <h2 className="text-xl font-semibold tracking-tight">Import members</h2>
