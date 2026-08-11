@@ -22,7 +22,7 @@ export default async function EditBookPage(props: PageProps<"/books/[id]/edit">)
     supabase
       .from("books")
       .select(
-        "id, title, author, isbn, publisher, edition, year, category, department, language, description, total_pages, invoice_no, invoice_date, distributor, price, project_no, degree, batch_month",
+        "id, title, author, isbn, publisher, edition, year, category, department, call_no, language, description, total_pages, invoice_no, invoice_date, distributor, price, project_no, degree, batch_month",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -47,6 +47,7 @@ export default async function EditBookPage(props: PageProps<"/books/[id]/edit">)
       <BookForm
         book={{
           ...book,
+          callNo: book.call_no,
           totalPages: book.total_pages,
           invoiceNo: book.invoice_no,
           invoiceDate: book.invoice_date,

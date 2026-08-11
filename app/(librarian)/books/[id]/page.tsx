@@ -34,7 +34,7 @@ export default async function BookDetailPage(props: PageProps<"/books/[id]">) {
       supabase
         .from("books")
         .select(
-          "id, title, author, isbn, publisher, edition, year, category, department, language, description, total_pages, invoice_no, invoice_date, distributor, price, project_no, degree, batch_month",
+          "id, title, author, isbn, publisher, edition, year, category, department, call_no, language, description, total_pages, invoice_no, invoice_date, distributor, price, project_no, degree, batch_month",
         )
         .eq("id", id)
         .maybeSingle(),
@@ -77,6 +77,11 @@ export default async function BookDetailPage(props: PageProps<"/books/[id]">) {
 
   // Where to walk to. Copies of one title usually share a shelf, so a single
   // value answers it; when they are split, say so rather than pick one.
+  //
+  // The call number is deliberately NOT passed into each copy's string here:
+  // it is one value for the title, so on a split shelf it would repeat in
+  // every branch ("530 · Row 09…, 530 · Row 11…"). It is prefixed once below
+  // instead, which is also how the rack label reads it.
   const shelves = [
     ...new Set(
       rows
@@ -90,7 +95,12 @@ export default async function BookDetailPage(props: PageProps<"/books/[id]">) {
         .filter((value): value is string => Boolean(value)),
     ),
   ];
-  const shelf = shelves.length ? shelves.join(", ") : null;
+  const placed = shelves.length ? shelves.join(", ") : null;
+
+  // "530 · Row 09 · Rack 01 · Sec A", or just "530" for a title that is
+  // classified but not yet shelved — which is still worth showing.
+  const shelf =
+    [book.call_no?.trim() || null, placed].filter(Boolean).join(" · ") || null;
 
   const isProject = isProjectCategory(book.category);
 

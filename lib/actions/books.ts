@@ -48,6 +48,13 @@ const bookSchema = z.object({
   // Postgres to refuse as an invalid enum input.
   category: z.enum(MATERIAL_CATEGORIES).optional(),
   department: z.string().trim().max(120).optional(),
+  // Free text, not a number: "512.943 4" carries a decimal AND a space, and
+  // some schemes append a Cutter suffix. Matches books_call_no_len.
+  callNo: z
+    .string()
+    .trim()
+    .max(40, "Keep the call number under 40 characters.")
+    .optional(),
   language: z.string().trim().max(60).optional(),
   description: z.string().trim().max(2000).optional(),
 
@@ -143,6 +150,7 @@ function readBook(formData: FormData) {
     year: formData.get("year") ?? undefined,
     category: formData.get("category") ?? undefined,
     department: formData.get("department") ?? undefined,
+    callNo: formData.get("callNo") ?? undefined,
     language: formData.get("language") ?? undefined,
     description: formData.get("description") ?? undefined,
     invoiceNo: formData.get("invoiceNo") ?? undefined,
@@ -185,6 +193,9 @@ function toRow(data: z.infer<typeof bookSchema>, authors: ProjectAuthor[] = []) 
     year: !isProject && data.year ? Number(data.year) : null,
     category,
     department: data.department || null,
+    // Kept for EVERY category, unlike the bibliographic fields above: a
+    // thesis sits on a rack and is classified like anything else.
+    call_no: data.callNo || null,
     language: isProject ? "English" : data.language || "English",
     description: isProject ? null : data.description || null,
 
@@ -609,14 +620,22 @@ export async function searchBooks(query: string): Promise<BookHit[]> {
 
   const { data: books } = await supabase
     .from("v_books_catalogue")
-    .select("id, title, author, total_copies, available_copies")
-    .or(`title.ilike.%${q}%,author.ilike.%${q}%,isbn.ilike.%${q}%`)
+    .select("id, title, author, call_no, total_copies, available_copies")
+    // Call number included: a librarian reading a rack label can type "530"
+    // straight in. Prefix-matched rather than exact, so "512.9" narrows.
+    .or(
+      `title.ilike.%${q}%,author.ilike.%${q}%,isbn.ilike.%${q}%,call_no.ilike.${q}%`,
+    )
     .order("title")
     .limit(6);
 
   if (!books?.length) return [];
 
   const ids = books.map((b) => b.id).filter((id): id is string => Boolean(id));
+
+  // The call number is on the TITLE, so it is looked up per book and folded
+  // into each copy's location string below.
+  const callNoByBook = new Map(books.map((b) => [b.id, b.call_no]));
 
   // Copies and due dates for all hits in two queries rather than 2N.
   const [{ data: copies }, { data: loans }] = await Promise.all([
@@ -643,6 +662,7 @@ export async function searchBooks(query: string): Promise<BookHit[]> {
       list.push({
         accessionNumber: c.accession_number,
         shelfLocation: formatShelfLocation({
+          callNo: callNoByBook.get(c.book_id),
           rowNo: c.row_no,
           rackNo: c.rack_no,
           section: c.section,

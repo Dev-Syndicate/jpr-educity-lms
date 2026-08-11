@@ -81,6 +81,7 @@ export type Database = {
         Row: {
           author: string
           batch_month: string | null
+          call_no: string | null
           category: Database["public"]["Enums"]["material_category"]
           created_at: string
           created_by: string | null
@@ -106,6 +107,7 @@ export type Database = {
         Insert: {
           author: string
           batch_month?: string | null
+          call_no?: string | null
           category?: Database["public"]["Enums"]["material_category"]
           created_at?: string
           created_by?: string | null
@@ -131,6 +133,7 @@ export type Database = {
         Update: {
           author?: string
           batch_month?: string | null
+          call_no?: string | null
           category?: Database["public"]["Enums"]["material_category"]
           created_at?: string
           created_by?: string | null
@@ -622,6 +625,7 @@ export type Database = {
         Row: {
           author: string | null
           available_copies: number | null
+          call_no: string | null
           category: Database["public"]["Enums"]["material_category"] | null
           department: string | null
           description: string | null

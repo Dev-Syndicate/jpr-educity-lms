@@ -54,7 +54,7 @@ export default async function BooksPage(props: PageProps<"/books">) {
   let request = supabase
     .from("v_books_catalogue")
     .select(
-      "id, title, author, isbn, category, department, total_copies, available_copies",
+      "id, title, author, isbn, call_no, category, department, total_copies, available_copies",
       { count: "exact" },
     )
     .order("title")
@@ -65,7 +65,9 @@ export default async function BooksPage(props: PageProps<"/books">) {
   if (query) {
     // Trigram indexes make these partial matches fast.
     request = request.or(
-      `title.ilike.%${query}%,author.ilike.%${query}%,isbn.ilike.%${query}%`,
+      // Call number prefix-matched, so "512.9" narrows a Dewey class while
+      // the rest stay substring matches.
+      `title.ilike.%${query}%,author.ilike.%${query}%,isbn.ilike.%${query}%,call_no.ilike.${query}%`,
     );
   }
 
@@ -78,7 +80,9 @@ export default async function BooksPage(props: PageProps<"/books">) {
   if (activeCategory) copiesRequest = copiesRequest.eq("category", activeCategory);
   if (query) {
     copiesRequest = copiesRequest.or(
-      `title.ilike.%${query}%,author.ilike.%${query}%,isbn.ilike.%${query}%`,
+      // Call number prefix-matched, so "512.9" narrows a Dewey class while
+      // the rest stay substring matches.
+      `title.ilike.%${query}%,author.ilike.%${query}%,isbn.ilike.%${query}%,call_no.ilike.${query}%`,
     );
   }
 
@@ -102,7 +106,7 @@ export default async function BooksPage(props: PageProps<"/books">) {
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <SearchField placeholder="Search title, author or ISBN" />
+        <SearchField placeholder="Search title, author, ISBN or call no." />
         <Button
           className="ml-auto"
           nativeButton={false}
@@ -201,9 +205,12 @@ export default async function BooksPage(props: PageProps<"/books">) {
                       >
                         {book.title}
                       </Link>
-                      {book.isbn ? (
+                      {/* Under the title rather than as its own column: the
+                          table is already six wide, and the call number is
+                          read together with the title when locating a book. */}
+                      {book.call_no || book.isbn ? (
                         <div className="text-muted-foreground font-mono text-xs">
-                          {book.isbn}
+                          {[book.call_no, book.isbn].filter(Boolean).join(" · ")}
                         </div>
                       ) : null}
                     </TableCell>

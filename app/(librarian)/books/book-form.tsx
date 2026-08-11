@@ -50,6 +50,7 @@ export type BookValues = {
   year?: number | null;
   category?: MaterialCategory | null;
   department?: string | null;
+  callNo?: string | null;
   language?: string | null;
   description?: string | null;
   totalPages?: number | null;
@@ -228,6 +229,23 @@ export function BookForm({ book }: { book?: BookValues }) {
               defaultValue={book?.department ?? ""}
               placeholder="Computer Science"
             />
+          </Field>
+
+          <Field data-invalid={state.fieldErrors?.callNo ? true : undefined}>
+            <FieldLabel htmlFor="callNo">Call no.</FieldLabel>
+            <Input
+              id="callNo"
+              name="callNo"
+              key={book?.callNo ?? ""}
+              defaultValue={book?.callNo ?? ""}
+              placeholder="530"
+              className="font-mono"
+              aria-invalid={state.fieldErrors?.callNo ? true : undefined}
+            />
+            <FieldError errors={fieldErrors(state, "callNo")} />
+            <FieldDescription>
+              From the rack label — the classification, e.g. 530 or 512.943 4.
+            </FieldDescription>
           </Field>
 
           {!isProject ? (
