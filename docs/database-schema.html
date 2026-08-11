@@ -92,6 +92,12 @@
   td.desc { color: var(--muted); font-size: .93em; }
   .pk, .fk, .uq { font-size: .64rem; font-weight: 700; letter-spacing: .04em;
     padding: .08em .34em; border-radius: 3px; vertical-align: middle; margin-left: .3rem; }
+  /* Prose under a card's column list, for a design decision the rows cannot
+     carry on their own — why a column is absent, not just what is present. */
+  .cardnote {
+    margin: 0; padding: .6rem .9rem; font-size: .8rem; line-height: 1.5;
+    color: var(--muted); border-top: 1px solid var(--line);
+  }
   .pk { background: var(--key); color: #fff; }
   .fk { background: transparent; color: var(--accent); border: 1px solid currentColor; }
   .uq { background: transparent; color: var(--ok); border: 1px solid currentColor; }
@@ -131,7 +137,7 @@
 
 <figure>
   <div class="figframe">
-    <svg viewBox="0 0 1080 660" role="img" aria-label="Entity relationship diagram: auth.users owns profiles; loans reference a book copy, a book, and a member profile; fines belong to a loan and a member; loan_events records an append-only audit trail; settings is a standalone singleton configuration row.">
+    <svg viewBox="0 0 1080 660" role="img" aria-label="Entity relationship diagram: auth.users owns profiles; books have many copies, and a project or thesis also has one or more project_authors; loans reference a book copy, a book, and a member profile; fines belong to a loan and a member; loan_events records an append-only audit trail; settings is a standalone singleton configuration row.">
       <defs>
         <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
@@ -158,6 +164,13 @@
         <rect x="46" y="122" width="212" height="60" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
         <text x="152" y="147" text-anchor="middle" font-size="14" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">books</text>
         <text x="152" y="166" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">the title · one per work</text>
+      </g>
+
+      <!-- project_authors -->
+      <g>
+        <rect x="46" y="14" width="212" height="60" rx="7" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".75"/>
+        <text x="152" y="38" text-anchor="middle" font-size="13.5" font-weight="700" font-family="ui-monospace,monospace" fill="currentColor">project_authors</text>
+        <text x="152" y="56" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".65">students on a project · thesis</text>
       </g>
 
       <!-- book_copies -->
@@ -201,6 +214,11 @@
       <!-- auth.users -> profiles -->
       <line x1="540" y1="60" x2="540" y2="118" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)" opacity=".7"/>
       <text x="550" y="93" font-size="10.5" fill="currentColor" opacity=".7">1:1 · same uuid, on delete cascade</text>
+
+      <!-- project_authors -> books -->
+      <line x1="152" y1="74" x2="152" y2="118" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)" opacity=".7"/>
+      <text x="162" y="92" font-size="10" fill="currentColor" opacity=".7">1–n students per</text>
+      <text x="162" y="106" font-size="10" fill="currentColor" opacity=".7">project · on delete cascade</text>
 
       <!-- books -> book_copies -->
       <line x1="152" y1="182" x2="152" y2="268" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
@@ -454,8 +472,30 @@
       <tr><td class="col">year</td><td class="typ">smallint</td><td class="desc">1400–2200</td></tr>
       <tr><td class="col">category</td><td class="typ">enum</td><td class="desc">book · non_book_material · project · thesis · proceeding · magazine</td></tr>
       <tr><td class="col">department</td><td class="typ">text</td><td class="desc">owning department, e.g. "S &amp; H", "CSE". Free text — matches the rack labels.</td></tr>
+      <tr><td class="col">total_pages</td><td class="typ">integer</td><td class="desc">page count of the work, 1–100000</td></tr>
+      <tr><td class="col">invoice_no</td><td class="typ">text</td><td class="desc">purchase invoice it arrived on</td></tr>
+      <tr><td class="col">invoice_date</td><td class="typ">date</td><td class="desc">date on that invoice</td></tr>
+      <tr><td class="col">distributor</td><td class="typ">text</td><td class="desc">supplier it was bought from</td></tr>
+      <tr><td class="col">price</td><td class="typ">numeric</td><td class="desc">invoiced price, ₹. <strong>Not</strong> <code>book_copies.price</code>, which is the replacement charge.</td></tr>
+      <tr><td class="col">project_no</td><td class="typ">text</td><td class="desc">project/thesis only — the register number</td></tr>
+      <tr><td class="col">degree</td><td class="typ">text</td><td class="desc">project/thesis only — "B.E.", "M.Tech"</td></tr>
+      <tr><td class="col">batch_month</td><td class="typ">text</td><td class="desc">project/thesis only — submission month/year, e.g. "May 2025"</td></tr>
       <tr><td class="col">search_vector</td><td class="typ">tsvector</td><td class="desc">generated; always in sync</td></tr>
     </table>
+    <p class="cardnote">The two groups are <strong>mutually exclusive</strong>. A project or thesis is a student submission, so it keeps the project columns and leaves the bibliographic ones (<code>isbn</code>, <code>publisher</code>, <code>edition</code>, <code>year</code>, <code>description</code>) and every acquisition column null — it was not bought. Everything else is the reverse. <code>books_project_fields_need_project_category</code> enforces one half of this in the database; the write path clears the other. <code>author</code> is never null: on a project it holds the first student's name.</p>
+  </article>
+
+  <!-- project_authors -->
+  <article class="tbl">
+    <header><h4>project_authors</h4><span class="note">the students behind a project or thesis</span></header>
+    <table>
+      <tr><td class="col">id<span class="pk">PK</span></td><td class="typ">uuid</td><td class="desc"></td></tr>
+      <tr><td class="col">book_id<span class="fk">FK</span></td><td class="typ">uuid</td><td class="desc">→ books · on delete cascade</td></tr>
+      <tr><td class="col">roll_number</td><td class="typ">text</td><td class="desc">the student's roll number. Unique per project.</td></tr>
+      <tr><td class="col">full_name</td><td class="typ">text</td><td class="desc"></td></tr>
+      <tr><td class="col">position</td><td class="typ">smallint</td><td class="desc">order on the title page, 1-based</td></tr>
+    </table>
+    <p class="cardnote">One row per student, so a project may have one author or six without a schema change. Department, degree and batch are <em>not</em> repeated here — they belong to the project, on <code>books</code>, because a project is submitted by one class in one batch.</p>
   </article>
 
   <!-- book_copies -->

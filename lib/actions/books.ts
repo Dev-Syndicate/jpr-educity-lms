@@ -10,15 +10,23 @@ import { createClient } from "@/lib/supabase/server";
 import {
   MATERIAL_CATEGORIES,
   failure,
+  isProjectCategory,
   success,
   type ActionState,
+  type MaterialCategory,
+  type ProjectAuthor,
 } from "@/lib/types";
 import { parseAccessionNumbers } from "@/lib/accession";
 import { formatShelfLocation, type ShelfLocation } from "@/lib/shelf";
 
 const bookSchema = z.object({
   title: z.string().trim().min(1, "Title is required.").max(300),
-  author: z.string().trim().min(1, "Author is required.").max(300),
+  // Optional HERE, not optional in general: a project posts no author box,
+  // because its authors are its students. readBook() re-imposes the
+  // requirement for every other category, and toRow() fills a project's from
+  // the first student — books.author is NOT NULL and every existing screen
+  // reads it, so it must always end up with a real name.
+  author: z.string().trim().max(300).optional(),
   isbn: z
     .string()
     .trim()
@@ -42,6 +50,36 @@ const bookSchema = z.object({
   department: z.string().trim().max(120).optional(),
   language: z.string().trim().max(60).optional(),
   description: z.string().trim().max(2000).optional(),
+
+  // --- Acquisition (PRD B-10). All optional: a donation has no invoice. ---
+  invoiceNo: z.string().trim().max(60).optional(),
+  invoiceDate: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), {
+      message: "Enter the invoice date as YYYY-MM-DD.",
+    })
+    .optional(),
+  distributor: z.string().trim().max(200).optional(),
+  price: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || (/^\d+(\.\d{1,2})?$/.test(v) && +v <= 9_999_999), {
+      message: "Enter a price in rupees, e.g. 450 or 450.50.",
+    })
+    .optional(),
+  totalPages: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || (/^\d+$/.test(v) && +v >= 1 && +v <= 100000), {
+      message: "Enter a page count between 1 and 100000.",
+    })
+    .optional(),
+
+  // --- Project / thesis (PRD B-11) ---
+  projectNo: z.string().trim().max(60).optional(),
+  degree: z.string().trim().max(60).optional(),
+  batchMonth: z.string().trim().max(40).optional(),
 });
 
 /**
@@ -69,10 +107,36 @@ function readShelf(formData: FormData) {
   });
 }
 
+/**
+ * Author is required for everything except a project or thesis, whose form
+ * posts a student list instead of an author box.
+ *
+ * The check lives here rather than in the zod schema because it depends on
+ * another field, and because "the box was not rendered" and "the box was left
+ * blank" have to stay distinguishable — a blank author on a BOOK is still an
+ * error worth reporting against that field.
+ */
 function readBook(formData: FormData) {
+  const category = formData.get("category");
+  const author = String(formData.get("author") ?? "").trim();
+
+  if (!isProjectCategory(category as MaterialCategory) && !author) {
+    return {
+      success: false as const,
+      error: new z.ZodError([
+        {
+          code: "custom" as const,
+          path: ["author"],
+          message: "Author is required.",
+          input: author,
+        },
+      ]),
+    };
+  }
+
   return bookSchema.safeParse({
     title: formData.get("title"),
-    author: formData.get("author"),
+    author: formData.get("author") ?? undefined,
     isbn: formData.get("isbn") ?? undefined,
     publisher: formData.get("publisher") ?? undefined,
     edition: formData.get("edition") ?? undefined,
@@ -81,23 +145,160 @@ function readBook(formData: FormData) {
     department: formData.get("department") ?? undefined,
     language: formData.get("language") ?? undefined,
     description: formData.get("description") ?? undefined,
+    invoiceNo: formData.get("invoiceNo") ?? undefined,
+    invoiceDate: formData.get("invoiceDate") ?? undefined,
+    distributor: formData.get("distributor") ?? undefined,
+    price: formData.get("price") ?? undefined,
+    totalPages: formData.get("totalPages") ?? undefined,
+    projectNo: formData.get("projectNo") ?? undefined,
+    degree: formData.get("degree") ?? undefined,
+    batchMonth: formData.get("batchMonth") ?? undefined,
   });
 }
 
-function toRow(data: z.infer<typeof bookSchema>) {
+function toRow(data: z.infer<typeof bookSchema>, authors: ProjectAuthor[] = []) {
+  // NOT NULL in the database, so it falls back rather than nulling out.
+  const category = data.category ?? "book";
+
+  // A magazine has no project number. The database refuses the combination
+  // outright (books_project_fields_need_project_category), so these are
+  // cleared here rather than passed through to be rejected — and clearing on
+  // every save is what makes re-categorising a thesis into a book work
+  // instead of failing on a value the form no longer even shows.
+  //
+  // The same applies to the bibliographic fields: a project has no ISBN,
+  // publisher or edition, and the form does not render those boxes. Nulling
+  // them here is what makes re-categorising a BOOK into a project actually
+  // drop its old ISBN rather than leave it stranded on a row that no longer
+  // shows it.
+  const isProject = isProjectCategory(category);
+
   return {
     title: data.title,
-    author: data.author,
-    isbn: data.isbn || null,
-    publisher: data.publisher || null,
-    edition: data.edition || null,
-    year: data.year ? Number(data.year) : null,
-    // NOT NULL in the database, so it falls back rather than nulling out.
-    category: data.category ?? "book",
+    // books.author is NOT NULL and drives the catalogue list, the counter
+    // search and every loan screen. A project posts no author box, so the
+    // first student stands as the author — which is who wrote it.
+    author: isProject ? (authors[0]?.fullName ?? "Unknown") : data.author!,
+    isbn: isProject ? null : data.isbn || null,
+    publisher: isProject ? null : data.publisher || null,
+    edition: isProject ? null : data.edition || null,
+    year: !isProject && data.year ? Number(data.year) : null,
+    category,
     department: data.department || null,
-    language: data.language || "English",
-    description: data.description || null,
+    language: isProject ? "English" : data.language || "English",
+    description: isProject ? null : data.description || null,
+
+    // Acquisition describes a purchase. A student submission was not bought,
+    // so the form omits the whole block and these stay null.
+    total_pages: !isProject && data.totalPages ? Number(data.totalPages) : null,
+    invoice_no: isProject ? null : data.invoiceNo || null,
+    invoice_date: isProject ? null : data.invoiceDate || null,
+    distributor: isProject ? null : data.distributor || null,
+    // Empty means "not recorded"; "0" is a real figure — a complimentary or
+    // donated copy — so this tests for blank rather than falsiness, which
+    // would file ₹0 as unknown. total_pages needs no such care: its
+    // constraint puts the floor at 1, so 0 is not a valid value there.
+    price:
+      isProject || data.price === "" || data.price === undefined
+        ? null
+        : Number(data.price),
+
+    project_no: isProject ? data.projectNo || null : null,
+    degree: isProject ? data.degree || null : null,
+    batch_month: isProject ? data.batchMonth || null : null,
   };
+}
+
+/**
+ * The student rows off a project form.
+ *
+ * The form posts `authorRoll` and `authorName` once per student row, so both
+ * arrive as parallel lists. A row with neither field filled is a blank the
+ * librarian added and did not use — dropped silently. A row with only one of
+ * the two is a half-finished entry and is an error worth showing, because
+ * silently discarding it would lose a student the librarian believes they
+ * just recorded.
+ */
+function readAuthors(formData: FormData): {
+  authors?: ProjectAuthor[];
+  error?: string;
+} {
+  const rolls = formData.getAll("authorRoll").map((v) => String(v).trim());
+  const names = formData.getAll("authorName").map((v) => String(v).trim());
+
+  const authors: ProjectAuthor[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 0; i < Math.max(rolls.length, names.length); i++) {
+    const rollNumber = rolls[i] ?? "";
+    const fullName = names[i] ?? "";
+
+    if (!rollNumber && !fullName) continue;
+    if (!rollNumber || !fullName) {
+      return { error: "Every student needs both a roll number and a name." };
+    }
+    if (rollNumber.length > 40 || fullName.length > 200) {
+      return { error: "That roll number or name is too long." };
+    }
+
+    // Matches project_authors_book_roll_unique, which is case-insensitive.
+    // Caught here so the librarian gets the roll number back rather than a
+    // raw 23505 naming an index.
+    const key = rollNumber.toLowerCase();
+    if (seen.has(key)) {
+      return { error: `${rollNumber} is listed twice.` };
+    }
+    seen.add(key);
+
+    authors.push({ rollNumber, fullName });
+  }
+
+  if (authors.length > 20) {
+    return { error: "A project can list at most 20 students." };
+  }
+
+  return { authors };
+}
+
+/**
+ * Replace a project's student list wholesale.
+ *
+ * Delete-then-insert rather than diffing: the list is at most a handful of
+ * rows, it is always edited as a whole, and `position` renumbers whenever a
+ * student is removed from the middle. A diff would be more code to arrive at
+ * the same rows.
+ */
+async function saveAuthorsFor(
+  bookId: string,
+  authors: ProjectAuthor[],
+): Promise<string | null> {
+  const supabase = await createClient();
+
+  const { error: clearError } = await supabase
+    .from("project_authors")
+    .delete()
+    .eq("book_id", bookId);
+
+  if (clearError) {
+    return rpcErrorMessage(clearError, "Could not update the student list.");
+  }
+
+  if (!authors.length) return null;
+
+  const { error } = await supabase.from("project_authors").insert(
+    authors.map((student, index) => ({
+      book_id: bookId,
+      roll_number: student.rollNumber,
+      full_name: student.fullName,
+      position: index + 1,
+    })),
+  );
+
+  if (!error) return null;
+  if (error.code === "23505") {
+    return "The same roll number is listed twice.";
+  }
+  return rpcErrorMessage(error, "Could not save the student list.");
 }
 
 /**
@@ -133,10 +334,25 @@ export async function createBook(
     return failure("Check the details below.", z.flattenError(shelf.error).fieldErrors);
   }
 
+  // Same reasoning as the shelf: catch a half-filled student row now, while
+  // the form can still be corrected, rather than after the title exists.
+  const students = readAuthors(formData);
+  if (students.error) {
+    return failure(students.error, { authors: [students.error] });
+  }
+
+  const wantsStudents = isProjectCategory(parsed.data.category ?? "book");
+  if (wantsStudents && !students.authors?.length) {
+    // The project's author IS its first student, so an empty list would leave
+    // books.author with nothing real to hold.
+    const message = "Add at least one student.";
+    return failure(message, { authors: [message] });
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("books")
-    .insert(toRow(parsed.data))
+    .insert(toRow(parsed.data, students.authors ?? []))
     .select("id")
     .single();
 
@@ -157,6 +373,12 @@ export async function createBook(
     await addCopiesFor(data.id, numbers, shelf.data);
   }
 
+  // Only for a project or thesis — for anything else the form did not show
+  // the fields, and toRow() has already nulled the header to match.
+  if (wantsStudents && students.authors?.length) {
+    await saveAuthorsFor(data.id, students.authors);
+  }
+
   revalidatePath("/books");
   redirect(`/books/${data.id}`);
 }
@@ -175,8 +397,22 @@ export async function updateBook(
     return failure("Check the details below.", z.flattenError(parsed.error).fieldErrors);
   }
 
+  const students = readAuthors(formData);
+  if (students.error) {
+    return failure(students.error, { authors: [students.error] });
+  }
+
+  const isProject = isProjectCategory(parsed.data.category ?? "book");
+  if (isProject && !students.authors?.length) {
+    const message = "Add at least one student.";
+    return failure(message, { authors: [message] });
+  }
+
   const supabase = await createClient();
-  const { error } = await supabase.from("books").update(toRow(parsed.data)).eq("id", id);
+  const { error } = await supabase
+    .from("books")
+    .update(toRow(parsed.data, students.authors ?? []))
+    .eq("id", id);
 
   if (error) {
     if (error.code === "23505") {
@@ -186,6 +422,17 @@ export async function updateBook(
     }
     return failure(rpcErrorMessage(error, "Could not save this book."));
   }
+
+  // Run for EVERY category, not only projects. Re-categorising a thesis into
+  // a book must take its student list with it: toRow() has already cleared
+  // the project number and degree, and leaving the authors behind would keep
+  // named students attached to a row that no longer displays them.
+  // saveAuthorsFor deletes first, so an empty list is exactly that clearing.
+  const authorsError = await saveAuthorsFor(
+    id,
+    isProject ? (students.authors ?? []) : [],
+  );
+  if (authorsError) return failure(authorsError, { authors: [authorsError] });
 
   refresh();
   revalidatePath("/books");
