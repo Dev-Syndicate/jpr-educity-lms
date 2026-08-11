@@ -31,6 +31,34 @@ export const MATERIAL_CATEGORIES = Object.keys(
   MATERIAL_CATEGORY_LABELS,
 ) as MaterialCategory[];
 
+/**
+ * The categories that carry a project number, a student list, and a degree
+ * and batch (PRD B-11).
+ *
+ * Declared once here because three places need the same answer — the form
+ * decides whether to show the section, the action decides whether to save it,
+ * and the detail page decides whether to display it. Three separate
+ * `=== "project" || === "thesis"` checks would eventually disagree, and the
+ * database constraint would then reject a save the form had allowed.
+ */
+export const PROJECT_CATEGORIES = ["project", "thesis"] as const;
+
+export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number];
+
+export function isProjectCategory(
+  category: MaterialCategory | null | undefined,
+): category is ProjectCategory {
+  return (
+    category != null && PROJECT_CATEGORIES.includes(category as ProjectCategory)
+  );
+}
+
+/** One student on a project or thesis. Mirrors a project_authors row. */
+export type ProjectAuthor = {
+  rollNumber: string;
+  fullName: string;
+};
+
 export type CurrentUser = {
   id: string;
   email: string;

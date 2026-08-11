@@ -80,52 +80,76 @@ export type Database = {
       books: {
         Row: {
           author: string
+          batch_month: string | null
           category: Database["public"]["Enums"]["material_category"]
           created_at: string
           created_by: string | null
+          degree: string | null
           department: string | null
           description: string | null
+          distributor: string | null
           edition: string | null
           id: string
+          invoice_date: string | null
+          invoice_no: string | null
           isbn: string | null
           language: string
+          price: number | null
+          project_no: string | null
           publisher: string | null
           search_vector: unknown
           title: string
+          total_pages: number | null
           updated_at: string
           year: number | null
         }
         Insert: {
           author: string
+          batch_month?: string | null
           category?: Database["public"]["Enums"]["material_category"]
           created_at?: string
           created_by?: string | null
+          degree?: string | null
           department?: string | null
           description?: string | null
+          distributor?: string | null
           edition?: string | null
           id?: string
+          invoice_date?: string | null
+          invoice_no?: string | null
           isbn?: string | null
           language?: string
+          price?: number | null
+          project_no?: string | null
           publisher?: string | null
           search_vector?: unknown
           title: string
+          total_pages?: number | null
           updated_at?: string
           year?: number | null
         }
         Update: {
           author?: string
+          batch_month?: string | null
           category?: Database["public"]["Enums"]["material_category"]
           created_at?: string
           created_by?: string | null
+          degree?: string | null
           department?: string | null
           description?: string | null
+          distributor?: string | null
           edition?: string | null
           id?: string
+          invoice_date?: string | null
+          invoice_no?: string | null
           isbn?: string | null
           language?: string
+          price?: number | null
+          project_no?: string | null
           publisher?: string | null
           search_vector?: unknown
           title?: string
+          total_pages?: number | null
           updated_at?: string
           year?: number | null
         }
@@ -501,6 +525,51 @@ export type Database = {
             columns: ["rejected_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_authors: {
+        Row: {
+          book_id: string
+          created_at: string
+          full_name: string
+          id: string
+          position: number
+          roll_number: string
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          full_name: string
+          id?: string
+          position?: number
+          roll_number: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          position?: number
+          roll_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_authors_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_authors_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "v_books_catalogue"
             referencedColumns: ["id"]
           },
         ]
