@@ -231,22 +231,6 @@ export function BookForm({ book }: { book?: BookValues }) {
             />
           </Field>
 
-          <Field data-invalid={state.fieldErrors?.callNo ? true : undefined}>
-            <FieldLabel htmlFor="callNo">Call no.</FieldLabel>
-            <Input
-              id="callNo"
-              name="callNo"
-              key={book?.callNo ?? ""}
-              defaultValue={book?.callNo ?? ""}
-              placeholder="530"
-              className="font-mono"
-              aria-invalid={state.fieldErrors?.callNo ? true : undefined}
-            />
-            <FieldError errors={fieldErrors(state, "callNo")} />
-            <FieldDescription>
-              From the rack label — the classification, e.g. 530 or 512.943 4.
-            </FieldDescription>
-          </Field>
 
           {!isProject ? (
             <Field>
@@ -441,38 +425,64 @@ export function BookForm({ book }: { book?: BookValues }) {
           </Field>
         ) : null}
 
-        {/* Only when creating: these describe the copies being added above,
-            not the title. Editing a title must not silently move copies that
-            are already shelved — that is done per copy in the copies table. */}
-        {!editing ? (
-          <Field>
-            <FieldLabel htmlFor="rowNo">Location</FieldLabel>
-            <div className="grid grid-cols-3 gap-3">
-              <Field>
-                <FieldLabel htmlFor="rowNo" className="text-muted-foreground text-xs">
-                  Row
-                </FieldLabel>
-                <Input id="rowNo" name="rowNo" placeholder="09" className="font-mono" />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="rackNo" className="text-muted-foreground text-xs">
-                  Rack
-                </FieldLabel>
-                <Input id="rackNo" name="rackNo" placeholder="01" className="font-mono" />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="section" className="text-muted-foreground text-xs">
-                  Section
-                </FieldLabel>
-                <Input id="section" name="section" placeholder="A" className="font-mono" />
-              </Field>
-            </div>
-            <FieldDescription>
-              Where these copies sit, from the rack label. Applies to every
-              accession number above; individual copies can be moved later.
-            </FieldDescription>
-          </Field>
-        ) : null}
+        {/* The shelf address, in the order the rack label prints it:
+            CALL NO down the left, then row, rack and section across.
+
+            Call no. is the odd one out here — it belongs to the TITLE, while
+            row/rack/section belong to the copies. It is grouped with them
+            anyway because that is how a librarian reads the label and how the
+            location is displayed back ("530 · Row 09 · Rack 01 · Sec A"), and
+            it is the only part that stays editable: editing a title must not
+            silently move copies that are already shelved, so those three are
+            offered only when creating and corrected per copy afterwards. */}
+        <Field>
+          <FieldLabel htmlFor="callNo">Location</FieldLabel>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Field data-invalid={state.fieldErrors?.callNo ? true : undefined}>
+              <FieldLabel htmlFor="callNo" className="text-muted-foreground text-xs">
+                Call no.
+              </FieldLabel>
+              <Input
+                id="callNo"
+                name="callNo"
+                key={book?.callNo ?? ""}
+                defaultValue={book?.callNo ?? ""}
+                placeholder="530"
+                className="font-mono"
+                aria-invalid={state.fieldErrors?.callNo ? true : undefined}
+              />
+            </Field>
+
+            {!editing ? (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="rowNo" className="text-muted-foreground text-xs">
+                    Row
+                  </FieldLabel>
+                  <Input id="rowNo" name="rowNo" placeholder="09" className="font-mono" />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="rackNo" className="text-muted-foreground text-xs">
+                    Rack
+                  </FieldLabel>
+                  <Input id="rackNo" name="rackNo" placeholder="01" className="font-mono" />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="section" className="text-muted-foreground text-xs">
+                    Section
+                  </FieldLabel>
+                  <Input id="section" name="section" placeholder="A" className="font-mono" />
+                </Field>
+              </>
+            ) : null}
+          </div>
+          <FieldError errors={fieldErrors(state, "callNo")} />
+          <FieldDescription>
+            {editing
+              ? "The classification from the rack label, e.g. 530 or 512.943 4. Move individual copies in the list below."
+              : "From the rack label. The call number describes the title; the row, rack and section apply to every accession number above, and individual copies can be moved later."}
+          </FieldDescription>
+        </Field>
 
         <Field>
           <SubmitButton pending={pending} size="lg">
