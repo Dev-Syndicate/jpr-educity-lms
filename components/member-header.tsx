@@ -20,7 +20,14 @@ const TITLES: Record<string, string> = {
  */
 export function MemberHeader() {
   const pathname = usePathname();
-  const title = TITLES[pathname] ?? "Library";
+
+  // /my/catalogue/<id> is the one nested route. It keeps the parent's title
+  // rather than falling through to "Library", which would read as though the
+  // member had left the catalogue — the page itself names the book, and the
+  // page has its own Back link.
+  const title =
+    TITLES[pathname] ??
+    (pathname.startsWith("/my/catalogue/") ? TITLES["/my/catalogue"] : "Library");
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">

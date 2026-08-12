@@ -30,6 +30,14 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -37,22 +45,35 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   approveAndIssue,
   issueBook,
+  lookupCopy,
   renewLoan,
   returnBook,
+  type CopyLookup,
   type IssueResult,
 } from "@/lib/actions/circulation";
 import { searchBooks, type BookHit } from "@/lib/actions/books";
 import { searchMembers, type MemberHit } from "@/lib/actions/members";
-import { idleState, type ActionState } from "@/lib/types";
+import {
+  MATERIAL_CATEGORY_LABELS,
+  idleState,
+  type ActionState,
+} from "@/lib/types";
 import { cn, initials } from "@/lib/utils";
 
-/** Completed operations only — see the effect that fills this. */
-type Recent = {
-  id: number;
-  what: string;
-};
-
 type Mode = "issue" | "return" | "renew";
+
+/**
+ * The copy awaiting confirmation, from the moment it is scanned.
+ *
+ * Opened with `lookup: null` before the lookup resolves, so the dialog appears
+ * on the scan rather than a beat later — the librarian sees the scan register
+ * immediately, and the details fill in.
+ */
+type Confirm = {
+  accession: string;
+  lookup: CopyLookup | null;
+  error: string | null;
+};
 
 /**
  * The three operations are NOT peers, and the layout says so.
@@ -108,8 +129,10 @@ const MODES: {
  */
 export function CounterClient() {
   const [member, setMember] = useState<MemberHit | null>(null);
-  const [recent, setRecent] = useState<Recent[]>([]);
-  const recentId = useRef(0);
+  /** Non-null while the issue confirmation dialog is open. */
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
+  /** Where focus returns when the confirmation dialog closes. */
+  const scanFieldRef = useRef<HTMLInputElement>(null);
   /** Bumped after every settled action so the loans list refetches. */
   const [loansKey, setLoansKey] = useState(0);
 
@@ -144,23 +167,27 @@ export function CounterClient() {
     ActionState<unknown>
   >((newest, s) => ((s.nonce ?? 0) > (newest.nonce ?? 0) ? s : newest), idleState);
 
-  // Log every settled action, newest first.
+  // React to every settled action exactly once.
+  //
+  // The updates are deferred into a microtask rather than run in the effect
+  // body. They are a *response to an action settling*, not a render-time
+  // synchronisation, and writing state synchronously here schedules a
+  // cascading render off the same commit — which is what
+  // react-hooks/set-state-in-effect flags. Awaiting first moves them out of
+  // that commit without changing the observable behaviour.
   const seen = useRef<number>(0);
   useEffect(() => {
     const nonce = latest.nonce ?? 0;
     if (!nonce || nonce === seen.current || !latest.message) return;
     seen.current = nonce;
 
-    // Successes only. Recent is a record of what the library actually did —
-    // a mistyped barcode is a typo, not history, and logging it put the same
-    // red message on screen twice: once in the banner, once here.
-    if (latest.ok) {
-      setRecent((prev) =>
-        [{ id: ++recentId.current, what: latest.message! }, ...prev].slice(0, 10),
-      );
-    }
+    if (!latest.ok || !member) return;
 
-    if (latest.ok && member) {
+    let cancelled = false;
+
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+
       const data = latest.data as IssueResult | undefined;
 
       if (data?.loansOut !== undefined && data.loansOut >= data.maxLoans) {
@@ -181,10 +208,37 @@ export function CounterClient() {
       // the books-on-loan list has to refetch. It previously keyed only on
       // renewPending and so never noticed an issue.
       setLoansKey((k) => k + 1);
-    }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [latest, member]);
 
   function handleScan(accession: string) {
+    // Issue confirms first. The scan resolves the copy read-only and opens the
+    // dialog; nothing is issued until the librarian clicks Issue there. Return
+    // and renew still act on the scan alone — the book is in hand and there is
+    // no wrong-member to catch.
+    if (mode === "issue") {
+      if (!member) return;
+      setConfirm({ accession, lookup: null, error: null });
+
+      startTransition(async () => {
+        const state = await lookupCopy(accession);
+        setConfirm((current) =>
+          // A second scan while this one was in flight wins — dropping the
+          // stale result rather than overwriting the newer lookup.
+          current?.accession !== accession
+            ? current
+            : state.ok
+              ? { accession, lookup: state.data!, error: null }
+              : { accession, lookup: null, error: state.message ?? "Could not look up that copy." },
+        );
+      });
+      return;
+    }
+
     const fd = new FormData();
     fd.set("accessionNumber", accession);
 
@@ -200,16 +254,19 @@ export function CounterClient() {
         return;
       }
 
-      if (mode === "return") {
-        returnAction(fd);
-        return;
-      }
+      returnAction(fd);
+    });
+  }
 
-      // Issue. Guarded by the UI (the mode is disabled without a member) and
-      // by issue_book(), which refuses a missing member.
-      if (!member) return;
+  /** Issue the copy sitting in the confirmation dialog. */
+  function confirmIssue() {
+    if (!confirm || !member) return;
 
-      fd.set("memberId", member.id);
+    const fd = new FormData();
+    fd.set("accessionNumber", confirm.accession);
+    fd.set("memberId", member.id);
+
+    startTransition(() => {
       if (member.accountStatus === "pending") {
         // Approve and issue in one transaction — if the issue fails, the
         // approval rolls back too.
@@ -218,6 +275,7 @@ export function CounterClient() {
       } else {
         issueAction(fd);
       }
+      setConfirm(null);
     });
   }
 
@@ -234,24 +292,32 @@ export function CounterClient() {
 
   // Esc is "start over": drop the member AND any pinned mode, back to the
   // resting state of waiting for a book to be returned.
+  //
+  // With the confirmation open Esc means "not this book" and nothing more —
+  // the dialog closes itself, and clearing the member here too would eject the
+  // librarian from a member they are still issuing to.
+  const confirmOpen = confirm !== null;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !confirmOpen) {
         setMember(null);
         setPinnedMode(null);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [confirmOpen]);
+
+  // The right column holds the loaded member, so it only exists in issue mode
+  // with someone loaded — in return/renew the book in hand is the subject and
+  // reserving 22rem for nothing would leave a dead band down the page.
+  const showMemberColumn = Boolean(member) && mode === "issue";
 
   return (
-    // The right column only exists once there is something to put in it —
-    // reserving 20rem for an empty log left a dead band down the page.
     <div
       className={cn(
         "grid items-start gap-6",
-        recent.length > 0 && "xl:grid-cols-[minmax(0,1fr)_20rem]",
+        showMemberColumn && "xl:grid-cols-[minmax(0,1fr)_22rem]",
       )}
     >
       <div className="flex min-w-0 flex-col gap-4">
@@ -267,6 +333,7 @@ export function CounterClient() {
                 onScan={handleScan}
                 onSelectMember={selectMember}
                 onClearMember={() => selectMember(null)}
+                scanFieldRef={scanFieldRef}
               />
             ) : (
               <ScanTarget
@@ -290,22 +357,203 @@ export function CounterClient() {
             <BookSearch />
           </CardContent>
         </Card>
+      </div>
 
-        {/* Only in issue mode: in return/renew the book in hand is the
-            subject, not a member. */}
-        {member && mode === "issue" ? (
+      {/* The person in front of you, kept beside the scan field rather than
+          below it: the librarian checks the face and the ID card WHILE
+          scanning, so pushing it under the fold would mean scrolling away
+          from the field they are about to use. */}
+      {showMemberColumn ? (
+        <div className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-4">
+          <MemberDetailsCard member={member!} onClear={() => selectMember(null)} />
           <MemberPanel
-            member={member}
-            onClear={() => selectMember(null)}
+            member={member!}
             renewAction={renewAction}
             renewPending={renewPending}
             loansKey={loansKey}
           />
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
-      <RecentList items={recent} />
+      <ConfirmIssueDialog
+        confirm={confirm}
+        member={member}
+        pending={pending}
+        scanFieldRef={scanFieldRef}
+        onCancel={() => setConfirm(null)}
+        onConfirm={confirmIssue}
+      />
     </div>
+  );
+}
+
+/**
+ * The scanned copy, before it becomes a loan.
+ *
+ * The counter is worked from a barcode, so nothing else on screen ever names
+ * the book being issued — a copy scanned off the wrong pile, or a barcode that
+ * read one digit wrong, would otherwise be discovered only when someone came
+ * back with a book they were never given. This is the one place the librarian
+ * can compare the copy in hand against the record before committing.
+ *
+ * The blocked cases are shown rather than hidden: "already on loan to X" tells
+ * the librarian what to do next, where a disabled button with no explanation
+ * does not.
+ */
+function ConfirmIssueDialog({
+  confirm,
+  member,
+  pending,
+  scanFieldRef,
+  onCancel,
+  onConfirm,
+}: {
+  confirm: Confirm | null;
+  member: MemberHit | null;
+  pending: boolean;
+  scanFieldRef: React.RefObject<HTMLInputElement | null>;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const lookup = confirm?.lookup ?? null;
+  const loading = confirm !== null && !lookup && !confirm.error;
+  const canIssue = Boolean(lookup?.issuable) && !pending;
+
+  /**
+   * Enter confirms.
+   *
+   * Base UI would otherwise focus the first tabbable element, which is Cancel
+   * — and the librarian's hands are on a scanner that ends every code with
+   * Enter, so the reflex keystroke would throw the scan away. Focusing Issue
+   * makes the confirm reachable without touching the mouse, which is the whole
+   * reason the counter is scanner-driven.
+   *
+   * It is only pre-focused once the copy is confirmed issuable: pointing it at
+   * a disabled button would leave nothing focused, and pre-focusing a
+   * destructive-by-mistake action while the details are still loading would
+   * let a fast Enter issue a book nobody has looked at yet.
+   */
+  const issueButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Moving focus IS the external-system update here — this is exactly the
+  // "manually updating the DOM" case an effect is for.
+  useEffect(() => {
+    if (canIssue) issueButtonRef.current?.focus();
+  }, [canIssue]);
+
+  return (
+    <Dialog
+      open={confirm !== null}
+      onOpenChange={(open) => {
+        if (!open) onCancel();
+      }}
+    >
+      {/* The dialog opens from a scan, not a trigger, so Base UI has no
+          trigger to restore focus to on close. Pointing finalFocus at the scan
+          field keeps the scanner loop working — otherwise focus lands on the
+          body and the next scan is typed into nothing. */}
+      <DialogContent
+        className="sm:max-w-lg"
+        finalFocus={scanFieldRef}
+        // false, not the button ref: at open time the lookup is still in
+        // flight and Issue is disabled, so a ref would resolve to nothing.
+        // The effect below moves focus once the details land.
+        initialFocus={false}
+      >
+        <DialogHeader>
+          <DialogTitle>
+            {confirm?.error ? "Copy not found" : "Issue this book?"}
+          </DialogTitle>
+          <DialogDescription>
+            {member
+              ? `Check the copy in hand, then issue it to ${member.fullName}.`
+              : "Check the copy in hand before issuing."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center gap-2 py-6">
+            <Spinner className="text-muted-foreground size-4" />
+            <span className="text-muted-foreground text-sm">
+              Looking up{" "}
+              <span className="font-mono">{confirm?.accession}</span>…
+            </span>
+          </div>
+        ) : confirm?.error ? (
+          <p className="text-overdue py-2 text-sm">{confirm.error}</p>
+        ) : lookup ? (
+          // Scrolls rather than growing: a fully catalogued title fills more
+          // than a short screen, and a dialog taller than the viewport would
+          // push the Issue button out of reach.
+          <div className="-mx-1 flex max-h-[55vh] flex-col gap-4 overflow-y-auto px-1">
+            <div className="flex flex-col gap-1.5">
+              <span className="leading-tight font-semibold">{lookup.bookTitle}</span>
+              <span className="text-muted-foreground text-sm">{lookup.author}</span>
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                <Badge variant="outline">
+                  {MATERIAL_CATEGORY_LABELS[lookup.category]}
+                </Badge>
+                <Badge
+                  className={
+                    lookup.issuable
+                      ? "bg-available-subtle text-available"
+                      : "bg-issued-subtle text-issued"
+                  }
+                >
+                  {lookup.status}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Two columns: these are short values being cross-checked against
+                a book in hand, and one per row made the dialog scroll for no
+                reason. Long values (title, publisher) stay full width above. */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-3">
+              <Detail label="Accession number" value={lookup.accessionNumber} mono wrap />
+              <Detail label="Condition" value={lookup.condition} wrap />
+              <Detail label="Call number" value={lookup.callNo} mono wrap />
+              <Detail label="Edition" value={lookup.edition} wrap />
+              <Detail
+                label="Year"
+                value={lookup.year ? String(lookup.year) : null}
+                wrap
+              />
+              <Detail label="Language" value={lookup.language} wrap />
+              <Detail label="Department" value={lookup.department} wrap />
+              <Detail
+                label="Pages"
+                value={lookup.totalPages ? String(lookup.totalPages) : null}
+                wrap
+              />
+              <Detail label="ISBN" value={lookup.isbn} mono wrap />
+            </div>
+
+            <div className="flex flex-col gap-3 border-t pt-3">
+              <Detail label="Publisher" value={lookup.publisher} wrap />
+              {/* Last, and full width: it is the one field the librarian acts
+                  on — it is where they walk to fetch the copy. */}
+              <Detail label="Shelf location" value={lookup.shelfLocation} wrap />
+            </div>
+
+            {lookup.blockedReason ? (
+              <p className="bg-overdue-subtle text-overdue rounded-lg p-3 text-sm">
+                {lookup.blockedReason}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button ref={issueButtonRef} onClick={onConfirm} disabled={!canIssue}>
+            {pending ? <Spinner /> : null}
+            Issue{member ? ` to ${member.fullName.split(" ")[0]}` : ""}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -416,6 +664,7 @@ function IssueSteps({
   onScan,
   onSelectMember,
   onClearMember,
+  scanFieldRef,
 }: {
   member: MemberHit | null;
   pending: boolean;
@@ -423,6 +672,7 @@ function IssueSteps({
   onScan: (value: string) => void;
   onSelectMember: (member: MemberHit) => void;
   onClearMember: () => void;
+  scanFieldRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const atLimit = member ? member.booksOut >= member.maxBooks : false;
 
@@ -451,6 +701,7 @@ function IssueSteps({
             onScan={onScan}
             disabled={!member}
             placeholder={member ? "Scan to issue…" : "Load a member first…"}
+            inputRef={scanFieldRef}
           />
         )}
       </Step>
@@ -458,17 +709,52 @@ function IssueSteps({
   );
 }
 
+/** One labelled field in the member panel. Dashes when there is no value. */
+function Detail({
+  label,
+  value,
+  mono,
+  wrap,
+}: {
+  label: string;
+  value: string | null;
+  mono?: boolean;
+  /**
+   * Let the value run onto a second line instead of truncating.
+   *
+   * The member rail truncates, because an overlong email there is still
+   * identifiable from its first half. The confirmation dialog does not: an
+   * ISBN or a shelf location is being read off the screen and compared to a
+   * book in hand, and half of one is worse than useless.
+   */
+  wrap?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <span className="text-muted-foreground text-[0.6875rem] font-medium tracking-wide uppercase">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "text-sm",
+          wrap ? "wrap-break-word" : "truncate",
+          mono && "font-mono",
+          !value && "text-muted-foreground",
+        )}
+      >
+        {value || "—"}
+      </span>
+    </div>
+  );
+}
+
 /**
- * The member loaded into step 1 — the librarian's check that the right person
- * was picked.
+ * Step 1 once a member is loaded — a confirmation line, not the record.
  *
- * Deliberately more than a confirmation line. Enter selects the top match
- * without the librarian ever reading the list, so this panel is the only place
- * a wrong match gets caught, and it has to carry enough to catch it: the photo
- * to check against the face, the roll number and department to check against
- * the ID card, the email to separate two students who share a name. A one-line
- * summary was fine when every selection was a deliberate click; it is not fine
- * when the common path never opens the list.
+ * The full details now sit in the right-hand column, so repeating them here
+ * would put the same six fields on screen twice and push step 2 — the scan
+ * field, the thing actually being used — further down the page. This says
+ * only "who is loaded, and how to change them".
  */
 function LoadedMember({
   member,
@@ -480,51 +766,21 @@ function LoadedMember({
   const atLimit = member.booksOut >= member.maxBooks;
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border p-3">
-      {/* Signed URL, so no next/image — the loader would need the host
-          allow-listed and would cache a URL that expires in ten minutes. */}
-      <Avatar className="size-14 shrink-0">
+    <div className="flex items-center gap-3 rounded-lg border p-3">
+      <Avatar className="size-10 shrink-0">
         {member.photoUrl ? <AvatarImage src={member.photoUrl} alt="" /> : null}
         <AvatarFallback>{initials(member.fullName)}</AvatarFallback>
       </Avatar>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-medium">{member.fullName}</span>
-          {member.accountStatus === "pending" ? (
-            <Badge className="bg-pending-subtle text-pending">Awaiting approval</Badge>
-          ) : null}
-          {!member.isActive && member.accountStatus === "active" ? (
-            <Badge variant="outline">Deactivated</Badge>
-          ) : null}
-          {member.owed > 0 ? (
-            <Badge className="bg-overdue-subtle text-overdue">
-              ₹{member.owed.toFixed(2)} due
-            </Badge>
-          ) : null}
-        </div>
-
-        {/* The ID-card line: what the librarian reads off the card in hand. */}
-        <p className="text-muted-foreground text-sm">
-          <span className="text-foreground font-mono">{member.rollNumber ?? "—"}</span>
-          {member.department ? ` · ${member.department}` : ""} ·{" "}
-          {member.memberType === "staff" ? "Faculty" : "Student"}
-        </p>
-
-        {/* Separates two people with the same name, which the rest cannot. */}
-        <p className="text-muted-foreground truncate text-xs">
-          {member.email}
-          {member.phone ? ` · ${member.phone}` : ""}
-        </p>
-
-        <p className="text-sm">
-          <span className={cn("font-medium tabular-nums", atLimit && "text-overdue")}>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate font-medium">{member.fullName}</span>
+        <span className="text-muted-foreground truncate text-xs">
+          <span className="font-mono">{member.rollNumber ?? "—"}</span>
+          {" · "}
+          <span className={cn("tabular-nums", atLimit && "text-overdue font-medium")}>
             {member.booksOut}/{member.maxBooks} books
-          </span>{" "}
-          <span className="text-muted-foreground">
-            {atLimit ? "— at the limit" : "issued"}
           </span>
-        </p>
+        </span>
       </div>
 
       <Button variant="ghost" size="sm" onClick={onClear}>
@@ -532,6 +788,100 @@ function LoadedMember({
         Change
       </Button>
     </div>
+  );
+}
+
+/**
+ * The loaded member's full record, in the right-hand column.
+ *
+ * Enter selects the top match without the librarian ever reading the list, so
+ * this card is the only place a wrong match gets caught, and it has to carry
+ * enough to catch it: the photo to check against the face, the roll number and
+ * department to check against the ID card, the contact details to separate two
+ * students who share a name. Every field is labelled rather than run together
+ * in a dot-separated line — at a counter you are cross-checking against a card
+ * in hand, and that is a lookup, not a read.
+ *
+ * Beside the scan field rather than below it, because both are used at the
+ * same moment.
+ */
+function MemberDetailsCard({
+  member,
+  onClear,
+}: {
+  member: MemberHit;
+  onClear: () => void;
+}) {
+  const atLimit = member.booksOut >= member.maxBooks;
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col items-center gap-3 text-center">
+          {/* Signed URL, so no next/image — the loader would need the host
+              allow-listed and would cache a URL that expires in ten minutes. */}
+          <Avatar className="size-28">
+            {member.photoUrl ? <AvatarImage src={member.photoUrl} alt="" /> : null}
+            <AvatarFallback className="text-2xl">
+              {initials(member.fullName)}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="flex min-w-0 flex-col items-center gap-1.5">
+            <span className="text-lg leading-tight font-semibold">
+              {member.fullName}
+            </span>
+
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {member.accountStatus === "pending" ? (
+                <Badge className="bg-pending-subtle text-pending">
+                  Awaiting approval
+                </Badge>
+              ) : null}
+              {!member.isActive && member.accountStatus === "active" ? (
+                <Badge variant="outline">Deactivated</Badge>
+              ) : null}
+              {member.owed > 0 ? (
+                <Badge className="bg-overdue-subtle text-overdue">
+                  ₹{member.owed.toFixed(2)} due
+                </Badge>
+              ) : null}
+            </div>
+
+            <p className="text-sm">
+              <span className={cn("font-medium tabular-nums", atLimit && "text-overdue")}>
+                {member.booksOut}/{member.maxBooks} books
+              </span>{" "}
+              <span className="text-muted-foreground">
+                {atLimit ? "— at the limit" : "issued"}
+              </span>
+            </p>
+          </div>
+        </div>
+
+        {/* The ID card, field by field. One column: this is a 22rem rail, and
+            two columns would truncate an email to nothing. */}
+        <div className="flex flex-col gap-3 border-t pt-4">
+          <Detail label="Roll number" value={member.rollNumber} mono />
+          <Detail label="Department" value={member.department} />
+          <Detail
+            label="Member type"
+            value={member.memberType === "staff" ? "Faculty" : "Student"}
+          />
+          <Detail label="Email" value={member.email} />
+          <Detail label="Phone" value={member.phone} mono />
+          <Detail
+            label="Outstanding"
+            value={member.owed > 0 ? `₹${member.owed.toFixed(2)}` : "None"}
+          />
+        </div>
+
+        <Button variant="outline" size="sm" onClick={onClear} className="w-full">
+          <XIcon />
+          Change member
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -910,21 +1260,21 @@ function MemberSearch({ onSelect }: { onSelect: (member: MemberHit) => void }) {
 
 function MemberPanel({
   member,
-  onClear,
   renewAction,
   renewPending,
   loansKey,
 }: {
   member: MemberHit;
-  onClear: () => void;
   renewAction: (formData: FormData) => void;
   renewPending: boolean;
   loansKey: number;
 }) {
   const pending = member.accountStatus === "pending";
 
-  // The member's name and counts live in step 1 above; this card carries only
-  // what step 1 cannot — the approval warning, and the books they hold.
+  // The name, photo and counts live in the details card above this one; this
+  // carries only what that cannot — the approval warning, and the books they
+  // hold. Clearing the member is that card's "Change member" button, so there
+  // is deliberately no second control for it here.
   return (
     <Card className={pending ? "border-pending" : undefined}>
       <CardHeader>
@@ -948,13 +1298,10 @@ function MemberPanel({
               <strong>
                 {member.declaredMemberType === "staff" ? "faculty" : "a student"}
               </strong>
-              , which allows {member.maxBooks} books. Scanning a book below will
+              , which allows {member.maxBooks} books. Scanning a book will
               approve this account and issue in one step.
             </p>
           </div>
-          <Button variant="outline" onClick={onClear}>
-            Cancel
-          </Button>
         </CardContent>
       ) : (
         <CardContent>
@@ -1006,7 +1353,9 @@ function MemberLoansList({
     return (
       <Empty className="py-6">
         <EmptyTitle>No books issued</EmptyTitle>
-        <EmptyDescription>Scan a book above to issue it.</EmptyDescription>
+        {/* No direction: the scan field is beside this on a wide screen and
+            above it on a narrow one. */}
+        <EmptyDescription>Scan a book to issue it.</EmptyDescription>
       </Empty>
     );
   }
@@ -1050,30 +1399,5 @@ function MemberLoansList({
         </li>
       ))}
     </ul>
-  );
-}
-
-function RecentList({ items }: { items: Recent[] }) {
-  // Nothing yet is nothing to show — an empty card would take a column of
-  // space to say so.
-  if (!items.length) return null;
-
-  return (
-    <Card className="xl:sticky xl:top-4">
-      <CardHeader>
-        <CardTitle>Recent</CardTitle>
-        <CardDescription>This session, newest first.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="flex flex-col gap-2 text-sm">
-          {items.map((item) => (
-            <li key={item.id} className="flex gap-2">
-              <span className="bg-available mt-1.5 size-2 shrink-0 rounded-full" />
-              <span className="text-muted-foreground">{item.what}</span>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
   );
 }

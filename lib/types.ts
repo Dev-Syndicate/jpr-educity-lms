@@ -3,6 +3,29 @@ export type MemberType = "student" | "staff";
 export type AccountStatus = "pending" | "active" | "rejected";
 export type CopyStatus = "available" | "issued" | "lost" | "damaged";
 
+/** The physical state of a copy. Mirrors the copy_condition enum. */
+export type CopyCondition = "new" | "good" | "fair" | "poor";
+
+/**
+ * Display names for the condition enum. Same reasoning as the category labels
+ * below — the stored value is lowercase, and rendering it bare puts "good"
+ * mid-sentence in a panel where every other value is capitalised.
+ */
+export const COPY_CONDITION_LABELS: Record<CopyCondition, string> = {
+  new: "New",
+  good: "Good",
+  fair: "Fair",
+  poor: "Poor",
+};
+
+/** Display names for the copy status enum. */
+export const COPY_STATUS_LABELS: Record<CopyStatus, string> = {
+  available: "On the shelf",
+  issued: "On loan",
+  lost: "Lost",
+  damaged: "Damaged",
+};
+
 /** What kind of item a title is. Mirrors the material_category enum. */
 export type MaterialCategory =
   | "book"
@@ -30,6 +53,25 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
 export const MATERIAL_CATEGORIES = Object.keys(
   MATERIAL_CATEGORY_LABELS,
 ) as MaterialCategory[];
+
+/**
+ * Plural forms, for anything labelling a GROUP of titles — a filter tab, a
+ * section heading, a count.
+ *
+ * Written out rather than appending "s" to the singular: "Proceeding" is
+ * already plural in library usage, and "Non-book materials" pluralises the
+ * head noun, not the end of the string. A naive suffix produces "Proceedings"
+ * by luck and "Non-book materials" by accident, and would produce nonsense the
+ * first time a category ended in -y or -s.
+ */
+export const MATERIAL_CATEGORY_PLURALS: Record<MaterialCategory, string> = {
+  book: "Books",
+  non_book_material: "Non-book materials",
+  project: "Projects",
+  thesis: "Theses",
+  proceeding: "Proceedings",
+  magazine: "Magazines",
+};
 
 /**
  * The categories that carry a project number, a student list, and a degree

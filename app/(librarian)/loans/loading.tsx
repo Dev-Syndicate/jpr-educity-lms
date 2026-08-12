@@ -32,6 +32,12 @@ export default function Loading() {
               <TableHead>
                 <Skeleton className="h-4 w-24" />
               </TableHead>
+              {/* Mirrors the real table's md: breakpoint — a placeholder
+                  column that the loaded table then drops would shift every
+                  row sideways. */}
+              <TableHead className="hidden md:table-cell">
+                <Skeleton className="h-4 w-16" />
+              </TableHead>
               <TableHead>
                 <Skeleton className="h-4 w-16" />
               </TableHead>
@@ -48,6 +54,9 @@ export default function Loading() {
                 </TableCell>
                 <TableCell>
                   <Skeleton className="h-5 w-32" />
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  <Skeleton className="h-5 w-20" />
                 </TableCell>
                 <TableCell>
                   <Skeleton className="h-5 w-20" />

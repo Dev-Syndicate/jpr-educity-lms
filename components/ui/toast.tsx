@@ -137,7 +137,10 @@ function ToastIcon({ type }: { type: string | undefined }) {
 
   if (type === "success") {
     icon = (
-      <CircleCheckIcon aria-hidden="true" />
+      // Coloured to match the error icon's text-destructive. Without this the
+      // success tick rendered in the default foreground, so a confirmation and
+      // a plain notification looked identical at a glance.
+      <CircleCheckIcon className="text-available" aria-hidden="true" />
     )
   }
 
