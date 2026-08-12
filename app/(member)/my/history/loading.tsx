@@ -1,5 +1,5 @@
 import { ListSkeleton } from "@/components/list-skeleton";
 
 export default function Loading() {
-  return <ListSkeleton columns={3} toolbar={false} rows={6} />;
+  return <ListSkeleton columns={4} toolbar={false} rows={6} />;
 }

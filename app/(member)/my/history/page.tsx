@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { requireApprovedMember } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
+import { formatIstDate } from "@/lib/utils";
 
 export const metadata = { title: "History" };
 
@@ -42,6 +43,7 @@ export default async function HistoryPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Book</TableHead>
+                <TableHead className="hidden sm:table-cell">Issued</TableHead>
                 <TableHead>Returned</TableHead>
                 <TableHead className="text-right">Fine paid</TableHead>
               </TableRow>
@@ -55,8 +57,14 @@ export default async function HistoryPage() {
                       {loan.book_author}
                     </div>
                   </TableCell>
+                  <TableCell className="text-muted-foreground hidden sm:table-cell">
+                    {formatIstDate(loan.issued_at) ?? "—"}
+                  </TableCell>
+                  {/* Formatted in IST rather than sliced off the ISO string:
+                      a book returned after 18:30 IST is still "yesterday" in
+                      UTC, so slicing showed the wrong day for evening returns. */}
                   <TableCell className="text-muted-foreground">
-                    {loan.returned_at?.slice(0, 10) ?? "—"}
+                    {formatIstDate(loan.returned_at) ?? "—"}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {Number(loan.fine_amount ?? 0) > 0

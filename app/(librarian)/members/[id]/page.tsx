@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/table";
 import { requireLibrarian } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
-import { initials } from "@/lib/utils";
+import { formatIstDate, initials } from "@/lib/utils";
 
 import { MemberPasswordReset } from "./member-password-reset";
 import { MemberStatusToggle } from "./member-status-toggle";
@@ -63,7 +63,7 @@ export default async function MemberDetailPage(props: PageProps<"/members/[id]">
     supabase
       .from("v_loans_with_fine")
       .select(
-        "id, book_title, accession_number, due_date, is_overdue, days_overdue, fine_outstanding",
+        "id, book_title, accession_number, issued_at, due_date, is_overdue, days_overdue, fine_outstanding",
       )
       .eq("member_id", id)
       .is("returned_at", null)
@@ -166,6 +166,7 @@ export default async function MemberDetailPage(props: PageProps<"/members/[id]">
             <TableHeader>
               <TableRow>
                 <TableHead>Book</TableHead>
+                <TableHead className="hidden sm:table-cell">Issued</TableHead>
                 <TableHead>Due</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -178,6 +179,9 @@ export default async function MemberDetailPage(props: PageProps<"/members/[id]">
                     <div className="text-muted-foreground font-mono text-xs">
                       {loan.accession_number}
                     </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground hidden sm:table-cell">
+                    {formatIstDate(loan.issued_at) ?? "—"}
                   </TableCell>
                   <TableCell>
                     <div>{loan.due_date}</div>
@@ -217,6 +221,7 @@ export default async function MemberDetailPage(props: PageProps<"/members/[id]">
             <TableHeader>
               <TableRow>
                 <TableHead>Book</TableHead>
+                <TableHead className="hidden sm:table-cell">Issued</TableHead>
                 <TableHead>Returned</TableHead>
                 <TableHead className="text-right">Fine</TableHead>
               </TableRow>
@@ -230,8 +235,14 @@ export default async function MemberDetailPage(props: PageProps<"/members/[id]">
                       {loan.accession_number}
                     </div>
                   </TableCell>
+                  <TableCell className="text-muted-foreground hidden sm:table-cell">
+                    {formatIstDate(loan.issued_at) ?? "—"}
+                  </TableCell>
+                  {/* Formatted in IST rather than sliced off the ISO string:
+                      after 18:30 IST the UTC date is still yesterday, so
+                      slicing showed the wrong day for evening returns. */}
                   <TableCell className="text-muted-foreground">
-                    {loan.returned_at?.slice(0, 10) ?? "—"}
+                    {formatIstDate(loan.returned_at) ?? "—"}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {Number(loan.fine_amount ?? 0) > 0

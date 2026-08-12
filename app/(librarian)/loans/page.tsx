@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { requireLibrarian } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
+import { formatIstDate } from "@/lib/utils";
 
 export const metadata = { title: "Loans" };
 
@@ -59,7 +60,7 @@ export default async function LoansPage(props: PageProps<"/loans">) {
   let request = supabase
     .from("v_loans_with_fine")
     .select(
-      "id, book_title, accession_number, member_name, member_roll_number, due_date, is_overdue, days_overdue, fine_outstanding, renewal_count",
+      "id, book_title, accession_number, member_name, member_roll_number, issued_at, due_date, is_overdue, days_overdue, fine_outstanding, renewal_count",
       { count: "exact" },
     )
     .is("returned_at", null)
@@ -175,6 +176,10 @@ export default async function LoansPage(props: PageProps<"/loans">) {
               <TableRow>
                 <TableHead>Book</TableHead>
                 <TableHead>Member</TableHead>
+                {/* Hidden on narrow screens rather than squeezed: the table
+                    already carries four columns, and Due is the one that
+                    drives the librarian's decisions. */}
+                <TableHead className="hidden md:table-cell">Issued</TableHead>
                 <TableHead>Due</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -193,6 +198,9 @@ export default async function LoansPage(props: PageProps<"/loans">) {
                     <div className="text-muted-foreground text-xs">
                       {loan.member_roll_number}
                     </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground hidden md:table-cell">
+                    {formatIstDate(loan.issued_at) ?? "—"}
                   </TableCell>
                   <TableCell>
                     <div>{loan.due_date}</div>

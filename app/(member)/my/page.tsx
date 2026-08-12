@@ -8,6 +8,7 @@ import {
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { requireApprovedMember } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
+import { formatIstDate } from "@/lib/utils";
 
 export const metadata = { title: "My books" };
 
@@ -19,7 +20,9 @@ export default async function MyBooksPage() {
   // correctness — but being explicit documents the intent.
   const { data: loans } = await supabase
     .from("v_loans_with_fine")
-    .select("id, book_title, book_author, due_date, days_overdue, is_overdue, fine_outstanding")
+    .select(
+      "id, book_title, book_author, issued_at, due_date, days_overdue, is_overdue, fine_outstanding",
+    )
     .eq("member_id", user.id)
     .is("returned_at", null)
     .order("due_date");
@@ -68,6 +71,14 @@ export default async function MyBooksPage() {
                 <CardDescription>{loan.book_author}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+                {/* Issued before due: it is the earlier date, and it is what
+                    tells the member how long they have already had the book. */}
+                <span className="text-muted-foreground">
+                  Issued{" "}
+                  <span className="text-foreground font-medium">
+                    {formatIstDate(loan.issued_at) ?? "—"}
+                  </span>
+                </span>
                 <span>
                   Due <span className="font-medium">{loan.due_date}</span>
                 </span>
