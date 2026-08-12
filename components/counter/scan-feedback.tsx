@@ -1,24 +1,33 @@
 "use client";
 
-import { CheckCircle2Icon, XCircleIcon } from "lucide-react";
+import { XCircleIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
-import type { ActionState } from "@/lib/types";
+import { useActionToast } from "@/components/use-action-toast";
+import { idleState, type ActionState } from "@/lib/types";
+
+/** Stable reference, so suppressing a toast never re-fires the effect. */
+const IDLE = idleState;
 
 /**
- * Result of the last scan, sized to be read from a metre away.
+ * Result of the last scan.
  *
- * Deliberately not a toast or a dialog: a toast auto-dismisses and gets
- * missed, and a dialog costs a keystroke per book.
+ * Successes go to a toast — it confirms and gets out of the way, which suits
+ * a librarian working a queue who is already reaching for the next book.
+ *
+ * Failures stay INLINE, under the scan field, and do not time out. A failure
+ * names a rule that has to be acted on ("collect ₹10 before renewing"), and
+ * the librarian is usually looking at the book rather than the screen when it
+ * lands — a message that floats in a corner on a timer is exactly the one
+ * that gets missed.
  */
 export function ScanFeedback({ state }: { state: ActionState<unknown> }) {
   const settled = Boolean(state.message);
   const ok = state.ok;
 
-  // No toast here. The banner sits directly under the scan field and the
-  // failure beep already carries the message when the librarian is looking at
-  // the book — a toast would be the same words a third time, next to the
-  // banner and the Recent list.
+  // Successes only. A failure would otherwise be announced twice — once in
+  // the banner below, once in a corner.
+  useActionToast(ok ? state : IDLE);
 
   // A short beep. Librarians listen more than they read once they are in
   // rhythm, and the two tones are distinguishable without looking up.
@@ -51,7 +60,9 @@ export function ScanFeedback({ state }: { state: ActionState<unknown> }) {
     // failures still re-fire the beep.
   }, [settled, ok, state.nonce]);
 
-  if (!settled) {
+  // A success has gone to the toast, so the field returns to its resting
+  // prompt rather than holding a banner that repeats what the toast just said.
+  if (!settled || ok) {
     return (
       <div className="text-muted-foreground flex min-h-11 items-center justify-center rounded-lg border border-dashed text-sm">
         Scan a book to begin.
@@ -64,17 +75,9 @@ export function ScanFeedback({ state }: { state: ActionState<unknown> }) {
       key={state.nonce}
       role="status"
       aria-live="assertive"
-      className={
-        ok
-          ? "bg-available-subtle text-available flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm"
-          : "bg-overdue-subtle text-overdue flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm"
-      }
+      className="bg-overdue-subtle text-overdue flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm"
     >
-      {ok ? (
-        <CheckCircle2Icon className="size-4 shrink-0" />
-      ) : (
-        <XCircleIcon className="size-4 shrink-0" />
-      )}
+      <XCircleIcon className="size-4 shrink-0" />
       <p className="leading-snug font-medium text-balance">{state.message}</p>
     </div>
   );
