@@ -55,6 +55,25 @@ export const MATERIAL_CATEGORIES = Object.keys(
 ) as MaterialCategory[];
 
 /**
+ * Plural forms, for anything labelling a GROUP of titles — a filter tab, a
+ * section heading, a count.
+ *
+ * Written out rather than appending "s" to the singular: "Proceeding" is
+ * already plural in library usage, and "Non-book materials" pluralises the
+ * head noun, not the end of the string. A naive suffix produces "Proceedings"
+ * by luck and "Non-book materials" by accident, and would produce nonsense the
+ * first time a category ended in -y or -s.
+ */
+export const MATERIAL_CATEGORY_PLURALS: Record<MaterialCategory, string> = {
+  book: "Books",
+  non_book_material: "Non-book materials",
+  project: "Projects",
+  thesis: "Theses",
+  proceeding: "Proceedings",
+  magazine: "Magazines",
+};
+
+/**
  * The categories that carry a project number, a student list, and a degree
  * and batch (PRD B-11).
  *

@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { requireApprovedMember } from "@/lib/dal";
+import { formatShelfLocation } from "@/lib/shelf";
 import { createClient } from "@/lib/supabase/server";
 import { MATERIAL_CATEGORY_LABELS, isProjectCategory } from "@/lib/types";
 
@@ -25,8 +26,10 @@ export const metadata = { title: "Book details" };
  *
  *   - Acquisition (invoice, distributor, price). Internal procurement data;
  *     no member has a reason to know what the library paid.
- *   - Per-copy rows. A member needs "can I borrow this today", not a list of
- *     accession numbers.
+ *   - Per-copy rows. The shelf columns are read to work out where the title
+ *     sits, but they are aggregated to a location string — no accession
+ *     numbers, no per-copy status. A member needs "can I borrow this today",
+ *     not an inventory.
  *   - Who holds a copy, and its due date. That is another member's borrowing
  *     history, and naming them here would leak it to anyone who looks up a
  *     popular title.
@@ -34,8 +37,9 @@ export const metadata = { title: "Book details" };
  * What is shown is what helps someone decide to walk to the counter: whether
  * a copy is free, and where it sits.
  *
- * Everything is read through v_books_catalogue, which is `security_invoker`
- * and already granted to `authenticated` — the member's own RLS applies. No
+ * Every table read here is already readable by an approved member under the
+ * existing policies — v_books_catalogue is `security_invoker`, and books,
+ * book_copies and project_authors all gate SELECT on is_approved_user(). No
  * new policy or migration was needed for this page.
  */
 export default async function MemberBookPage(
@@ -46,27 +50,63 @@ export default async function MemberBookPage(
 
   const supabase = await createClient();
 
-  // Independent queries, so both trips to Mumbai start together.
-  const [{ data: book }, { data: authors }] = await Promise.all([
-    supabase
-      .from("v_books_catalogue")
-      .select(
-        "id, title, author, isbn, publisher, edition, year, category, department, call_no, language, description, total_copies, available_copies",
-      )
-      .eq("id", id)
-      .maybeSingle(),
-    supabase
-      .from("project_authors")
-      .select("roll_number, full_name")
-      .eq("book_id", id)
-      .order("position"),
-  ]);
+  // Independent queries, so all three trips to Mumbai start together.
+  //
+  // total_pages is read from `books` because v_books_catalogue does not carry
+  // it, and the copies query supplies the shelf — row/rack/section live on the
+  // copy, not the title. Both tables are readable by an approved member under
+  // the existing policies (copies_select_approved), so this needs no new grant.
+  const [{ data: book }, { data: authors }, { data: copies }, { data: pages }] =
+    await Promise.all([
+      supabase
+        .from("v_books_catalogue")
+        .select(
+          "id, title, author, isbn, publisher, edition, year, category, department, call_no, language, description, total_copies, available_copies",
+        )
+        .eq("id", id)
+        .maybeSingle(),
+      supabase
+        .from("project_authors")
+        .select("roll_number, full_name")
+        .eq("book_id", id)
+        .order("position"),
+      // Only the shelf columns. Deliberately NOT accession numbers or status —
+      // a member needs to know where to walk, not which copy is which, and the
+      // per-copy detail is what would let them infer who holds what.
+      supabase
+        .from("book_copies")
+        .select("row_no, rack_no, section")
+        .eq("book_id", id),
+      supabase.from("books").select("total_pages").eq("id", id).maybeSingle(),
+    ]);
 
   if (!book) notFound();
 
   const available = book.available_copies ?? 0;
   const total = book.total_copies ?? 0;
   const isProject = isProjectCategory(book.category);
+
+  // Where to walk to. Copies of one title usually share a shelf, so a single
+  // value answers it; when they are split across shelves, say so rather than
+  // pick one and send the member to the wrong rack.
+  //
+  // The call number is left out of each copy's string and shown on its own row
+  // instead: it belongs to the title, so folding it in would repeat it in
+  // every branch of a split shelf ("530 · Row 1…, 530 · Row 3…").
+  const shelves = [
+    ...new Set(
+      (copies ?? [])
+        .map((copy) =>
+          formatShelfLocation({
+            rowNo: copy.row_no,
+            rackNo: copy.rack_no,
+            section: copy.section,
+          }),
+        )
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const shelf = shelves.length ? shelves.join(", ") : null;
 
   // A project has no ISBN, publisher, edition or language, and its author is
   // the student list below — so those rows are dropped rather than rendered
@@ -75,12 +115,15 @@ export default async function MemberBookPage(
     isProject
       ? [
           ["Call number", book.call_no],
+          ["Location", shelf],
           ["Category", book.category ? MATERIAL_CATEGORY_LABELS[book.category] : null],
           ["Department", book.department],
+          ["Pages", pages?.total_pages ?? null],
         ]
       : [
           ["Author", book.author],
           ["Call number", book.call_no],
+          ["Location", shelf],
           ["ISBN", book.isbn],
           ["Publisher", book.publisher],
           ["Edition", book.edition],
@@ -88,6 +131,7 @@ export default async function MemberBookPage(
           ["Category", book.category ? MATERIAL_CATEGORY_LABELS[book.category] : null],
           ["Department", book.department],
           ["Language", book.language],
+          ["Pages", pages?.total_pages ?? null],
         ]
   ).filter(([, value]) => value != null && value !== "");
 

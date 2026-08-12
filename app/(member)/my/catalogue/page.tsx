@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CategoryFilter } from "@/components/category-filter";
 import { SearchField } from "@/components/search-field";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -14,14 +15,25 @@ import {
 } from "@/components/ui/table";
 import { requireApprovedMember } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
+import {
+  MATERIAL_CATEGORIES,
+  MATERIAL_CATEGORY_PLURALS,
+  type MaterialCategory,
+} from "@/lib/types";
 
 export const metadata = { title: "Catalogue" };
 
 export default async function CataloguePage(props: PageProps<"/my/catalogue">) {
   await requireApprovedMember();
 
-  const { q } = await props.searchParams;
+  const { q, category } = await props.searchParams;
   const query = typeof q === "string" ? q.trim() : "";
+
+  // Never trust the URL: an unknown ?category= is ignored rather than passed
+  // to Postgres, which would reject it as an invalid enum and 500 the page.
+  const activeCategory = MATERIAL_CATEGORIES.includes(category as MaterialCategory)
+    ? (category as MaterialCategory)
+    : null;
 
   const supabase = await createClient();
   let request = supabase
@@ -29,6 +41,8 @@ export default async function CataloguePage(props: PageProps<"/my/catalogue">) {
     .select("id, title, author, category, total_copies, available_copies")
     .order("title")
     .limit(50);
+
+  if (activeCategory) request = request.eq("category", activeCategory);
 
   if (query) {
     request = request.or(
@@ -48,11 +62,21 @@ export default async function CataloguePage(props: PageProps<"/my/catalogue">) {
 
       <SearchField placeholder="Search title, author or ISBN" />
 
+      <CategoryFilter active={activeCategory} />
+
       {!books?.length ? (
         <Empty>
           <EmptyTitle>No matches</EmptyTitle>
           <EmptyDescription>
-            {query ? `Nothing matches “${query}”.` : "The catalogue is empty."}
+            {/* A filtered-but-empty list is not an empty catalogue, and must
+                not claim the library has no books at all. */}
+            {query && activeCategory
+              ? `No ${MATERIAL_CATEGORY_PLURALS[activeCategory].toLowerCase()} match “${query}”.`
+              : activeCategory
+                ? `Nothing in ${MATERIAL_CATEGORY_PLURALS[activeCategory].toLowerCase()} yet.`
+                : query
+                  ? `Nothing matches “${query}”.`
+                  : "The catalogue is empty."}
           </EmptyDescription>
         </Empty>
       ) : (
