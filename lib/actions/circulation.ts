@@ -6,7 +6,17 @@ import { z } from "zod";
 import { requireLibrarian } from "@/lib/dal";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
-import { failure, success, type ActionState } from "@/lib/types";
+import { formatShelfLocation } from "@/lib/shelf";
+import {
+  COPY_CONDITION_LABELS,
+  COPY_STATUS_LABELS,
+  failure,
+  success,
+  type ActionState,
+  type CopyCondition,
+  type CopyStatus,
+  type MaterialCategory,
+} from "@/lib/types";
 
 // Accession numbers are whatever is printed on the copy, so the only rules
 // are non-blank and bounded. Whether a number exists is the database's
@@ -237,4 +247,124 @@ export async function approveAndIssue(
     },
     `Approved ${data.member_name} and issued "${data.book_title}". Due ${data.due_date}.`,
   );
+}
+
+export type CopyLookup = {
+  accessionNumber: string;
+  bookTitle: string;
+  author: string;
+  /** "530 · Row 09 · Rack 01 · Sec A", or null when nowhere is recorded. */
+  shelfLocation: string | null;
+  callNo: string | null;
+  isbn: string | null;
+  edition: string | null;
+  publisher: string | null;
+  year: number | null;
+  language: string | null;
+  department: string | null;
+  category: MaterialCategory;
+  totalPages: number | null;
+  /** Already labelled — the raw enum never reaches the screen. */
+  status: string;
+  condition: string;
+  /** False when this copy cannot go out — already on loan, lost, damaged. */
+  issuable: boolean;
+  /** Why not, when `issuable` is false. Null otherwise. */
+  blockedReason: string | null;
+  /** Who holds it, when it is already out. */
+  onLoanTo: string | null;
+  /** When it is out: who has it until when, for the blocked message. */
+  dueDate: string | null;
+};
+
+/**
+ * Resolve a scanned copy for the issue confirmation step. READ-ONLY.
+ *
+ * The counter shows this before issuing so the librarian can check the copy in
+ * hand against the screen — a mis-scan is caught here rather than becoming a
+ * loan someone has to unpick later.
+ *
+ * It deliberately does NOT pre-authorise the issue. Whether this copy can go
+ * out is re-decided by issue_book() inside its own transaction; anything
+ * decided here is advisory and could be stale by the time Issue is clicked.
+ * The `issuable` flag exists to explain the situation and to disable a button,
+ * never to substitute for the database's check.
+ */
+export async function lookupCopy(
+  accessionNumber: string,
+): Promise<ActionState<CopyLookup>> {
+  await requireLibrarian();
+
+  const parsed = accession.safeParse(accessionNumber);
+  if (!parsed.success) return failure(parsed.error.issues[0].message);
+
+  const supabase = await createClient();
+
+  const { data: copy, error } = await supabase
+    .from("book_copies")
+    .select(
+      "accession_number, status, condition, row_no, rack_no, section, books(title, author, edition, publisher, call_no, isbn, year, language, department, category, total_pages)",
+    )
+    .eq("accession_number", parsed.data)
+    .maybeSingle();
+
+  if (error) return failure(rpcErrorMessage(error, "Could not look up that copy."));
+  if (!copy) return failure(`No copy with accession number ${parsed.data}.`);
+
+  const book = copy.books;
+
+  // Only ask who holds it when it is actually out — for the common case this
+  // saves a round trip on the scan path, where latency is felt directly.
+  let onLoanTo: string | null = null;
+  let dueDate: string | null = null;
+  if (copy.status === "issued") {
+    const { data: loan } = await supabase
+      .from("v_loans_with_fine")
+      .select("member_name, due_date")
+      .eq("accession_number", parsed.data)
+      .is("returned_at", null)
+      .maybeSingle();
+
+    onLoanTo = loan?.member_name ?? null;
+    dueDate = loan?.due_date ?? null;
+  }
+
+  const status = copy.status as CopyStatus;
+  const condition = copy.condition as CopyCondition;
+
+  const blockedReason =
+    status === "issued"
+      ? onLoanTo
+        ? `This copy is already on loan to ${onLoanTo}${dueDate ? `, due ${dueDate}` : ""}. Take it back before issuing it again.`
+        : "This copy is already on loan."
+      : status === "available"
+        ? null
+        : `This copy is marked ${COPY_STATUS_LABELS[status].toLowerCase()} and cannot be issued.`;
+
+  return success({
+    accessionNumber: copy.accession_number,
+    bookTitle: book?.title ?? "Unknown title",
+    author: book?.author ?? "—",
+    shelfLocation: formatShelfLocation({
+      callNo: book?.call_no,
+      rowNo: copy.row_no,
+      rackNo: copy.rack_no,
+      section: copy.section,
+    }),
+    callNo: book?.call_no ?? null,
+    isbn: book?.isbn ?? null,
+    edition: book?.edition ?? null,
+    publisher: book?.publisher ?? null,
+    year: book?.year ?? null,
+    language: book?.language ?? null,
+    department: book?.department ?? null,
+    category: (book?.category ?? "book") as MaterialCategory,
+    totalPages: book?.total_pages ?? null,
+    status: COPY_STATUS_LABELS[status],
+    condition: COPY_CONDITION_LABELS[condition],
+    issuable: blockedReason === null,
+    blockedReason,
+    onLoanTo,
+    dueDate,
+  });
 }

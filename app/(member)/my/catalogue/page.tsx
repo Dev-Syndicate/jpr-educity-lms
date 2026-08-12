@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { SearchField } from "@/components/search-field";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -66,7 +68,19 @@ export default async function CataloguePage(props: PageProps<"/my/catalogue">) {
             <TableBody>
               {books.map((book) => (
                 <TableRow key={book.id}>
-                  <TableCell className="font-medium">{book.title}</TableCell>
+                  {/* The title is the link, not the row. A clickable <tr> is
+                      not focusable and announces as nothing; stretching an
+                      overlay across the row needs `position: relative` on the
+                      <tr>, which browsers treat inconsistently. The title is
+                      what a member reads and aims at anyway. */}
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/my/catalogue/${book.id}`}
+                      className="hover:text-primary underline-offset-4 hover:underline"
+                    >
+                      {book.title}
+                    </Link>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{book.author}</TableCell>
                   <TableCell className="text-right">
                     <Badge

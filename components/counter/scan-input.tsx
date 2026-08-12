@@ -13,6 +13,12 @@ type Props = {
   onScan: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  /**
+   * Exposes the field so a caller can return focus to it — the counter's
+   * confirmation dialog opens from a scan and so has no trigger of its own to
+   * restore focus to.
+   */
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 };
 
 /**
@@ -28,8 +34,10 @@ export function ScanInput({
   onScan,
   placeholder,
   disabled,
+  inputRef,
 }: Props) {
-  const ref = useRef<HTMLInputElement>(null);
+  const ownRef = useRef<HTMLInputElement>(null);
+  const ref = inputRef ?? ownRef;
   const lastScan = useRef<{ value: string; at: number }>({ value: "", at: 0 });
 
   // Clear and refocus after every settled action, so the next scan lands in an
@@ -39,9 +47,17 @@ export function ScanInput({
     if (pending || disabled) return;
     const el = ref.current;
     if (!el) return;
+
     el.value = "";
-    el.focus();
-  }, [pending, nonce, disabled]);
+
+    // Only reclaim focus from nothing. The counter's confirmation dialog is
+    // open across exactly this transition — a scan settles its lookup while
+    // the dialog holds focus — and focusing here would rip focus out of it and
+    // put the librarian's Enter back in this field instead of on the Issue
+    // button.
+    const active = document.activeElement;
+    if (!active || active === document.body || active === el) el.focus();
+  }, [pending, nonce, disabled, ref]);
 
   // Keep focus. If the librarian clicks dead space, the next keystroke brings
   // focus back here rather than vanishing.
@@ -63,7 +79,10 @@ export function ScanInput({
     }
 
     function onWindowFocus() {
-      ref.current?.focus();
+      // Same rule as above: coming back to the tab must not pull focus out of
+      // an open dialog.
+      const active = document.activeElement;
+      if (!active || active === document.body) ref.current?.focus();
     }
 
     window.addEventListener("keydown", onKeyDown);
@@ -72,7 +91,7 @@ export function ScanInput({
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("focus", onWindowFocus);
     };
-  }, []);
+  }, [ref]);
 
   return (
     <form

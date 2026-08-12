@@ -3,6 +3,29 @@ export type MemberType = "student" | "staff";
 export type AccountStatus = "pending" | "active" | "rejected";
 export type CopyStatus = "available" | "issued" | "lost" | "damaged";
 
+/** The physical state of a copy. Mirrors the copy_condition enum. */
+export type CopyCondition = "new" | "good" | "fair" | "poor";
+
+/**
+ * Display names for the condition enum. Same reasoning as the category labels
+ * below — the stored value is lowercase, and rendering it bare puts "good"
+ * mid-sentence in a panel where every other value is capitalised.
+ */
+export const COPY_CONDITION_LABELS: Record<CopyCondition, string> = {
+  new: "New",
+  good: "Good",
+  fair: "Fair",
+  poor: "Poor",
+};
+
+/** Display names for the copy status enum. */
+export const COPY_STATUS_LABELS: Record<CopyStatus, string> = {
+  available: "On the shelf",
+  issued: "On loan",
+  lost: "Lost",
+  damaged: "Damaged",
+};
+
 /** What kind of item a title is. Mirrors the material_category enum. */
 export type MaterialCategory =
   | "book"
