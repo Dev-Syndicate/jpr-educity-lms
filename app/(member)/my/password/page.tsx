@@ -5,9 +5,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PasswordForm } from "@/components/password-form";
 import { requireUser } from "@/lib/dal";
-
-import { PasswordForm } from "./password-form";
 
 export const metadata = { title: "Password" };
 

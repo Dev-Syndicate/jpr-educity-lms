@@ -14,6 +14,14 @@ import { Input } from "@/components/ui/input";
 import { changePassword } from "@/lib/actions/auth";
 import { idleState } from "@/lib/types";
 
+/**
+ * Change your own password.
+ *
+ * Shared by the member portal and the librarian shell. changePassword() takes
+ * requireUser() and re-authenticates against the caller's own session, so the
+ * same form serves both roles — and re-authentication lives in exactly one
+ * place rather than in two copies that could drift apart.
+ */
 export function PasswordForm() {
   const [state, action, pending] = useActionState(changePassword, idleState);
 

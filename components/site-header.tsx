@@ -27,6 +27,7 @@ const SECTIONS: Record<string, string> = {
   members: "Members",
   staff: "Librarians",
   settings: "Settings",
+  password: "Change password",
 };
 
 /** Trailing segments that name an action rather than a record. */

@@ -4,6 +4,7 @@ import {
   BookOpenIcon,
   ChevronDownIcon,
   IndianRupeeIcon,
+  KeyRoundIcon,
   LayoutDashboardIcon,
   LibraryBigIcon,
   ScanBarcodeIcon,
@@ -289,6 +290,23 @@ export function AppSidebar({
                     <Link href="/settings">
                       <SettingsIcon />
                       <span>Settings</span>
+                    </Link>
+                  }
+                />
+              </SidebarMenuItem>
+
+              {/* Beside Settings rather than in Manage: this changes the
+                  signed-in librarian's own credentials, not anything the
+                  library owns. Resetting a MEMBER's password is a different
+                  action and lives on the member's own page. */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Password"
+                  isActive={isActive("/password")}
+                  render={
+                    <Link href="/password">
+                      <KeyRoundIcon />
+                      <span>Password</span>
                     </Link>
                   }
                 />
